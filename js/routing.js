@@ -1,6 +1,6 @@
 // OSRM route fetching plus "green detour" candidate generation.
 
-import { OSRM_HOSTS, NOMINATIM_URL } from './config.js';
+import { OSRM_HOSTS } from './config.js';
 import { haversine } from './geo.js';
 
 function coordString(points) {
@@ -99,24 +99,4 @@ export function pickGreenViaPoints(greenAreas, origin, destination, limit = 3) {
     if (picked.length >= limit) break;
   }
   return picked;
-}
-
-export async function geocode(query) {
-  const params = new URLSearchParams({
-    format: 'json',
-    q: query,
-    limit: '1',
-    countrycodes: 'us',
-    // Bias results to greater Houston.
-    viewbox: '-95.90,30.15,-94.90,29.40',
-    bounded: '1',
-  });
-  const res = await fetch(`${NOMINATIM_URL}?${params}`);
-  if (!res.ok) throw new Error('Geocoding service unavailable.');
-  const results = await res.json();
-  if (!results.length) throw new Error(`Could not find "${query}" in the Houston area.`);
-  return {
-    coord: [parseFloat(results[0].lat), parseFloat(results[0].lon)],
-    label: results[0].display_name,
-  };
 }

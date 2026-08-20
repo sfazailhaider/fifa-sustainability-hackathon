@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>CoolWays Houston — pleasant-route finder for FIFA World Cup 26</title>
+    <title>Houston Route Comparison — shade, green space, time and carbon</title>
     <meta
       name="description"
       content="Compare Houston travel routes by shade, green space, quietness, time and carbon — built for FIFA World Cup 26 crowds in Texas summer heat."
@@ -26,7 +26,7 @@
         <header class="brand">
           <div class="brand-mark">🌳</div>
           <div>
-            <h1>CoolWays Houston</h1>
+            <h1>Houston Route Comparison</h1>
             <p class="tagline">Not just the fastest way there — the one you'll survive in July.</p>
           </div>
         </header>
@@ -34,17 +34,57 @@
         <section class="card">
           <h2>Plan a trip</h2>
 
-          <label class="field">
+          <div class="field">
             <span>From</span>
-            <input id="origin-input" list="preset-list" placeholder="Discovery Green" autocomplete="off" />
-          </label>
+            <div class="combo">
+              <input
+                id="origin-input"
+                type="text"
+                placeholder="Any address, place, or intersection"
+                autocomplete="off"
+                role="combobox"
+                aria-expanded="false"
+                aria-autocomplete="list"
+                aria-controls="origin-suggestions"
+              />
+              <button
+                type="button"
+                class="combo-btn"
+                id="locate-btn"
+                title="Use my current location"
+                aria-label="Use my current location"
+              >
+                ◎
+              </button>
+              <ul class="suggestions" id="origin-suggestions" role="listbox" hidden></ul>
+            </div>
+          </div>
 
-          <label class="field">
+          <button type="button" class="swap-btn" id="swap-btn" title="Swap start and finish">
+            ⇅ Swap
+          </button>
+
+          <div class="field">
             <span>To</span>
-            <input id="dest-input" list="preset-list" placeholder="NRG Stadium" autocomplete="off" />
-          </label>
+            <div class="combo">
+              <input
+                id="dest-input"
+                type="text"
+                placeholder="Any address, place, or intersection"
+                autocomplete="off"
+                role="combobox"
+                aria-expanded="false"
+                aria-autocomplete="list"
+                aria-controls="dest-suggestions"
+              />
+              <ul class="suggestions" id="dest-suggestions" role="listbox" hidden></ul>
+            </div>
+          </div>
 
-          <datalist id="preset-list"></datalist>
+          <p class="hint pick-hint">
+            Search anywhere in greater Houston, paste <code>29.7604, -95.3698</code>, click
+            <b>Set start / Set finish</b> on the map, or drag either pin.
+          </p>
 
           <div class="field">
             <span>How are you getting there?</span>
@@ -69,6 +109,15 @@
             re-routing needed.
           </p>
           <div id="weights"></div>
+
+          <div class="field" style="margin: 14px 0 0">
+            <span>Scoring scale</span>
+            <div class="mode-row" id="score-mode-row" style="grid-template-columns: 1fr 1fr">
+              <button type="button" class="mode is-active" data-score="absolute">Absolute</button>
+              <button type="button" class="mode" data-score="relative">Relative</button>
+            </div>
+            <p class="hint" id="score-mode-hint" style="margin: 8px 0 0"></p>
+          </div>
         </section>
 
         <section class="card" id="results-card" hidden>
@@ -79,6 +128,15 @@
         <section class="card" id="detail-card" hidden>
           <h2>Trip impact</h2>
           <div id="detail"></div>
+        </section>
+
+        <section class="card" id="directions-card" hidden>
+          <h2>
+            <span id="directions-title">Directions</span>
+            <button id="toggle-directions" class="link-btn" type="button">collapse</button>
+          </h2>
+          <p class="hint" id="directions-summary"></p>
+          <ol id="directions" class="directions"></ol>
         </section>
 
         <footer class="foot">
@@ -93,6 +151,10 @@
 
       <main class="map-wrap">
         <div id="map"></div>
+        <div class="map-tools">
+          <button type="button" class="pick-btn" data-pick="origin">📍 Set start</button>
+          <button type="button" class="pick-btn" data-pick="destination">🏁 Set finish</button>
+        </div>
         <div class="map-legend" id="legend" hidden></div>
       </main>
     </div>

@@ -416,3 +416,264 @@ input[type="text"],
     border-top: 1px solid var(--line);
   }
 }
+
+/* ---------------------------------------------- place search combobox --- */
+
+.combo {
+  position: relative;
+}
+
+.combo input {
+  padding-right: 34px;
+}
+
+.combo-btn {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.combo-btn:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.suggestions {
+  position: absolute;
+  z-index: 900;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  max-height: 268px;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 8px 28px rgba(16, 32, 24, 0.16);
+}
+
+.suggestion {
+  padding: 7px 9px;
+  border-radius: 7px;
+  cursor: pointer;
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.suggestion:hover,
+.suggestion.is-active {
+  background: var(--accent-soft);
+}
+
+.suggestion-icon {
+  flex: none;
+  font-size: 13px;
+  width: 16px;
+  text-align: center;
+}
+
+.suggestion-text {
+  min-width: 0;
+}
+
+.suggestion-label {
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.suggestion-detail {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.swap-btn {
+  display: block;
+  margin: -6px 0 8px auto;
+  padding: 3px 9px;
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  background: #fff;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.swap-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.pick-hint code {
+  background: #eef1ee;
+  padding: 1px 4px;
+  border-radius: 4px;
+  font-size: 11px;
+}
+
+/* --------------------------------------------------------- map tools --- */
+
+.map-tools {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 500;
+  display: flex;
+  gap: 6px;
+}
+
+.pick-btn {
+  padding: 7px 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.96);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+}
+
+.pick-btn:hover {
+  border-color: var(--accent);
+}
+
+.pick-btn.is-armed {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+.map-picking {
+  cursor: crosshair;
+}
+
+.pin {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50% 50% 50% 6px;
+  transform: rotate(-45deg);
+  border: 2px solid #fff;
+  box-shadow: 0 2px 6px rgba(16, 32, 24, 0.4);
+  font-size: 12px;
+}
+
+.pin span {
+  transform: rotate(45deg);
+}
+
+.pin-origin {
+  background: var(--accent);
+}
+
+.pin-destination {
+  background: #be123c;
+}
+
+/* -------------------------------------------------------- directions --- */
+
+.directions {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.directions.is-collapsed {
+  display: none;
+}
+
+.dir-step {
+  display: grid;
+  grid-template-columns: 22px 1fr auto;
+  gap: 9px;
+  align-items: start;
+  padding: 8px 6px;
+  border-top: 1px solid var(--line);
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.dir-step:first-child {
+  border-top: 0;
+}
+
+.dir-step:hover,
+.dir-step.is-active {
+  background: var(--accent-soft);
+}
+
+.dir-arrow {
+  font-size: 15px;
+  color: var(--accent);
+  text-align: center;
+  line-height: 1.35;
+}
+
+.dir-text {
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.dir-meta {
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.dir-dist {
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  padding-top: 1px;
+}
+
+.chip {
+  border-radius: 99px;
+  padding: 1px 6px;
+  font-weight: 600;
+  font-size: 10px;
+  letter-spacing: 0.01em;
+}
+
+.chip-shade {
+  background: #e6f2ec;
+  color: #14603c;
+}
+
+.chip-green {
+  background: #eef7e6;
+  color: #3f6212;
+}
+
+.chip-road {
+  background: #fdf1e0;
+  color: var(--warn);
+}

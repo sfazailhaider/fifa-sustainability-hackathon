@@ -21,7 +21,7 @@ const GREEN_QUERY = (bbox) => `
 );
 out geom;`;
 
-const CACHE_PREFIX = 'coolways.green.';
+const CACHE_PREFIX = 'hrc.green.';
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));

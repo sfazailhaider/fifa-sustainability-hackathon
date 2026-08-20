@@ -19,11 +19,21 @@ export const OVERPASS_ENDPOINTS = [
   'https://overpass.kumi.systems/api/interpreter',
 ];
 
+// Photon is an OSM geocoder built for type-ahead; Nominatim's usage policy
+// explicitly rules autocomplete out, so it is kept for one-shot lookups only.
+export const PHOTON_SEARCH_URL = 'https://photon.komoot.io/api/';
+export const PHOTON_REVERSE_URL = 'https://photon.komoot.io/reverse';
 export const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search';
+
+// Results are biased toward Houston, not restricted to it — a fan staying in
+// Katy, Sugar Land, or Galveston still has to get to the stadium.
+export const SEARCH_BIAS = { lat: 29.7604, lon: -95.3698 };
+export const GREATER_HOUSTON = { s: 29.0, w: -96.2, n: 30.6, e: -94.6 };
 
 export const MODES = {
   car: {
     label: 'Drive',
+    verb: 'Head',
     icon: '🚗',
     // g CO2e per passenger-km. EPA average light-duty vehicle ~404 g/mi, single occupant.
     co2PerKm: 251,
@@ -34,6 +44,7 @@ export const MODES = {
   },
   bike: {
     label: 'Bike',
+    verb: 'Ride',
     icon: '🚲',
     co2PerKm: 5, // lifecycle emissions of the bicycle itself
     kcalPerKm: 30,
@@ -42,6 +53,7 @@ export const MODES = {
   },
   foot: {
     label: 'Walk',
+    verb: 'Walk',
     icon: '🚶',
     co2PerKm: 0,
     kcalPerKm: 62,

@@ -27,7 +27,7 @@ out geom;`;
 
 const res = await fetch('https://overpass-api.de/api/interpreter', {
   method: 'POST',
-  headers: { 'User-Agent': 'CoolWaysHouston/1.0 (FIFA Sustainability Hackathon)' },
+  headers: { 'User-Agent': 'houston-route-comparison/1.0 (FIFA Sustainability Hackathon)' },
   body: new URLSearchParams({ data: query }),
 });
 if (!res.ok) throw new Error(`Overpass returned ${res.status}`);

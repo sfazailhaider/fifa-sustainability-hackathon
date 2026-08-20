@@ -16,6 +16,21 @@ const BIG_ROAD_REF = /^(I-|US-|TX-|SH-|FM-|BW-|Sam Houston|Hardy Toll|Westpark T
 const BIG_ROAD_NAME =
   /(Freeway|Fwy|Tollway|Toll Rd|Interstate|Expressway|Expwy|Parkway Feeder|Feeder)/i;
 
+export function isBigRoad(name = '', ref = '') {
+  return BIG_ROAD_REF.test(ref) || BIG_ROAD_NAME.test(name);
+}
+
+/**
+ * Green and shade share for an arbitrary path — a whole route, or a single
+ * turn-by-turn step. Short paths get sampled finely so a 30 m step still
+ * gets a meaningful answer instead of one lucky sample.
+ */
+export function pathGreenMetrics(points, layer, spacing = SAMPLE_SPACING_M) {
+  if (!layer || points.length < 2) return { greenShare: 0, shadeShare: 0, samples: [] };
+  const samples = samplePath(points, spacing);
+  return { ...greenMetrics(samples, layer), samples };
+}
+
 /** Fraction of route samples that are inside or beside green space. */
 function greenMetrics(samples, layer) {
   const { proj, polygons, canopyPolygons, greenIndex, treeIndex } = layer;
@@ -65,9 +80,7 @@ function bigRoadShare(route) {
     for (const step of leg.steps || []) {
       const dist = step.distance || 0;
       known += dist;
-      const ref = step.ref || '';
-      const name = step.name || '';
-      if (BIG_ROAD_REF.test(ref) || BIG_ROAD_NAME.test(name)) big += dist;
+      if (isBigRoad(step.name || '', step.ref || '')) big += dist;
       const type = step.maneuver?.type;
       if (type && !['depart', 'arrive', 'continue'].includes(type)) turns++;
     }
@@ -87,12 +100,25 @@ function normalise(values) {
   return values.map((v) => (v - min) / (max - min));
 }
 
+const clamp01 = (v) => Math.min(1, Math.max(0, v));
+
 /**
- * Score every candidate route. Absolute metrics are computed per route;
- * the composite score is normalised across the candidate set so the cards
- * always answer "which of these is nicest", not "is this nice in the abstract".
+ * Score every candidate route, two ways.
+ *
+ * ABSOLUTE puts each component on a fixed 0–1 scale that means the same thing
+ * on every trip: the actual share of the route beside green space, under
+ * canopy, and off big roads, plus how close it comes to a straight line. A 60
+ * here is the same 60 tomorrow, in another city, for another trip — so scores
+ * can be compared, tracked, and reported.
+ *
+ * RELATIVE normalises each component across this candidate set, which spreads
+ * the field out and answers "which of these is nicest" even when every option
+ * is similar. It cannot be compared across trips: the best of five bad routes
+ * still scores 100.
+ *
+ * Both are computed every time; the UI picks which to display.
  */
-export function scoreRoutes(routes, layer, mode, weights) {
+export function scoreRoutes(routes, layer, mode, weights, scoreMode = 'absolute') {
   const modeCfg = MODES[mode];
 
   const enriched = routes.map((route) => {
@@ -101,6 +127,13 @@ export function scoreRoutes(routes, layer, mode, weights) {
     const roads = bigRoadShare(route);
     const km = route.distance / 1000;
     const minutes = route.duration / 60;
+
+    // How close this route comes to the straight line between the endpoints.
+    // In a grid city a good route lands around 0.75-0.85; it is the absolute
+    // anchor for directness, where the relative score can only use "vs. the
+    // shortest option we happened to find".
+    const crowFlyM = haversine(route.points[0], route.points[route.points.length - 1]);
+    const efficiency = clamp01(crowFlyM / Math.max(route.distance, 1));
 
     // Unshaded minutes outdoors — the number that matters for a June
     // World Cup in Houston, where afternoon heat index runs past 105F.
@@ -117,6 +150,8 @@ export function scoreRoutes(routes, layer, mode, weights) {
         bigRoadShare: roads.bigRoadShare,
         turns: roads.turns,
         turnsPerKm: roads.turnsPerKm,
+        crowFlyKm: crowFlyM / 1000,
+        efficiency,
         exposedMinutes,
         co2Kg: (km * modeCfg.co2PerKm) / 1000,
         co2SavedVsDrivingKg: (km * (MODES.car.co2PerKm - modeCfg.co2PerKm)) / 1000,
@@ -128,6 +163,8 @@ export function scoreRoutes(routes, layer, mode, weights) {
   });
 
   const shortest = Math.min(...enriched.map((r) => r.distance));
+  const combine = (c) =>
+    100 * (weights.green * c.green + weights.shade * c.shade + weights.quiet * c.quiet + weights.direct * c.direct);
 
   const greenN = normalise(enriched.map((r) => r.metrics.greenShare));
   const shadeN = normalise(enriched.map((r) => r.metrics.shadeShare));
@@ -137,19 +174,23 @@ export function scoreRoutes(routes, layer, mode, weights) {
   );
 
   enriched.forEach((route, i) => {
-    route.components = {
-      green: greenN[i],
-      shade: shadeN[i],
-      quiet: quietN[i],
-      direct: directN[i],
+    const m = route.metrics;
+
+    const absolute = {
+      green: clamp01(m.greenShare),
+      shade: clamp01(m.shadeShare),
+      quiet: clamp01(1 - m.bigRoadShare),
+      // Mostly "does it go straight there", tempered by how fiddly it is:
+      // a route with more than ~15 turns per km is tiring however direct.
+      direct: clamp01(0.7 * m.efficiency + 0.3 * clamp01(1 - m.turnsPerKm / 15)),
     };
-    route.pleasantness =
-      100 *
-      (weights.green * greenN[i] +
-        weights.shade * shadeN[i] +
-        weights.quiet * quietN[i] +
-        weights.direct * directN[i]);
-    route.metrics.detourPct = (route.distance / shortest - 1) * 100;
+
+    const relative = { green: greenN[i], shade: shadeN[i], quiet: quietN[i], direct: directN[i] };
+
+    route.components = { absolute, relative };
+    route.scores = { absolute: combine(absolute), relative: combine(relative) };
+    route.pleasantness = route.scores[scoreMode];
+    m.detourPct = (route.distance / shortest - 1) * 100;
   });
 
   return enriched;
