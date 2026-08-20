@@ -125,11 +125,6 @@
           <div id="routes"></div>
         </section>
 
-        <section class="card" id="detail-card" hidden>
-          <h2>Trip impact</h2>
-          <div id="detail"></div>
-        </section>
-
         <section class="card" id="directions-card" hidden>
           <h2>
             <span id="directions-title">Directions</span>
@@ -137,6 +132,24 @@
           </h2>
           <p class="hint" id="directions-summary"></p>
           <ol id="directions" class="directions"></ol>
+        </section>
+
+        <section class="card" id="water-card" hidden>
+          <h2>
+            <span>Water stops</span>
+            <button id="toggle-water" class="link-btn" type="button">hide on map</button>
+          </h2>
+          <p class="hint" id="water-summary"></p>
+          <ol id="water-list" class="directions"></ol>
+        </section>
+
+        <section class="card" id="detail-card" hidden>
+          <h2>Trip impact</h2>
+          <div id="detail"></div>
+          <details class="sources">
+            <summary>Where these numbers come from</summary>
+            <ul id="impact-sources"></ul>
+          </details>
         </section>
 
         <footer class="foot">
@@ -154,6 +167,9 @@
         <div class="map-tools">
           <button type="button" class="pick-btn" data-pick="origin">📍 Set start</button>
           <button type="button" class="pick-btn" data-pick="destination">🏁 Set finish</button>
+          <button type="button" class="pick-btn" id="basemap-btn" title="Switch basemap">
+            🗺 Natural
+          </button>
         </div>
         <div class="map-legend" id="legend" hidden></div>
       </main>

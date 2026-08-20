@@ -9,6 +9,7 @@ import {
 } from './config.js';
 import { samplePath, haversine, pointSegmentDistance } from './geo.js';
 import { insideGreen } from './greenspace.js';
+import { waterAlongRoute } from './water.js';
 
 // Roads we would rather not walk, bike, or sit in traffic beside. OSRM step
 // names carry a `ref` (I-45, US-59, TX-288) for exactly the roads that hurt.
@@ -135,6 +136,8 @@ export function scoreRoutes(routes, layer, mode, weights, scoreMode = 'absolute'
     const crowFlyM = haversine(route.points[0], route.points[route.points.length - 1]);
     const efficiency = clamp01(crowFlyM / Math.max(route.distance, 1));
 
+    const water = waterAlongRoute(route.points, layer?.water);
+
     // Unshaded minutes outdoors — the number that matters for a June
     // World Cup in Houston, where afternoon heat index runs past 105F.
     const exposedMinutes = modeCfg.heatExposed ? minutes * (1 - green.shadeShare) : 0;
@@ -142,6 +145,7 @@ export function scoreRoutes(routes, layer, mode, weights, scoreMode = 'absolute'
     return {
       ...route,
       samples,
+      water,
       metrics: {
         km,
         minutes,
@@ -152,6 +156,8 @@ export function scoreRoutes(routes, layer, mode, weights, scoreMode = 'absolute'
         turnsPerKm: roads.turnsPerKm,
         crowFlyKm: crowFlyM / 1000,
         efficiency,
+        waterStops: water.stops.length,
+        longestDryKm: water.longestDryM / 1000,
         exposedMinutes,
         co2Kg: (km * modeCfg.co2PerKm) / 1000,
         co2SavedVsDrivingKg: (km * (MODES.car.co2PerKm - modeCfg.co2PerKm)) / 1000,
@@ -207,6 +213,12 @@ export function assignBadges(routes) {
   best((r) => r.pleasantness).badges.push({ key: 'pleasant', label: 'Most pleasant' });
   best((r) => r.metrics.greenShare).badges.push({ key: 'green', label: 'Greenest' });
   best((r) => r.metrics.shadeShare).badges.push({ key: 'shade', label: 'Most shaded' });
+
+  // Only worth flagging when there is actually water to find.
+  const wettest = best((r) => r.metrics.waterStops);
+  if (wettest.metrics.waterStops > 0) {
+    wettest.badges.push({ key: 'water', label: `${wettest.metrics.waterStops} water stops` });
+  }
   return routes;
 }
 

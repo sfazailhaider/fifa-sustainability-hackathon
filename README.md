@@ -19,8 +19,30 @@ things that actually decide whether a person walks, bikes, or gives up and calls
 
 Those four combine into a 0–100 **pleasantness score** with weights the user controls live.
 Alongside it the app reports the sustainability numbers: CO₂ emitted or avoided versus driving
-the same trip solo, the METRO-bus equivalent, calories burned, and — the Houston-specific one —
-**unshaded minutes outdoors**.
+the same trip solo, the METRO-bus equivalent, calories burned, and — the Houston-specific ones —
+**unshaded minutes outdoors** and the **longest stretch without drinking water**.
+
+### Where the impact numbers come from
+
+Every impact figure is a published average applied to the routed distance. None of it is
+measured, live, or specific to a given vehicle or person. They live as named constants in
+[`js/config.js`](js/config.js) so they are auditable and easy to swap, and the app lists these
+same sources under "Trip impact" so provenance travels with the number.
+
+| Figure | Value | Source |
+| --- | --- | --- |
+| Driving CO₂ | 251 g/km | US EPA typical passenger vehicle, ~404 g CO₂/mile, single occupant |
+| Cycling CO₂ | 5 g/km | European Cyclists' Federation lifecycle estimate, manufacturing share only |
+| Walking CO₂ | 0 g/km | no vehicle; dietary energy is reported as calories instead |
+| Transit CO₂ | 105 g/km | FTA transit averages, local bus at average occupancy (~0.17 kg/passenger-mile) |
+| Calories | 62 kcal/km walking, 30 cycling | ~100 kcal/mile for a ~70 kg adult |
+| Driving cost | $0.42/km | IRS 2024 standard mileage rate, $0.67/mile (fuel, maintenance, insurance, depreciation) |
+| Unshaded minutes, green %, water | — | computed here from OSM geometry along the route |
+
+Caveats worth saying out loud: the ECF's full cycling figure is ~21 g/km once the extra food is
+counted, and this app reports that part as calories rather than double-counting it as carbon.
+The bike maintenance cost ($0.03/km) is a rough allowance, not a sourced figure. Car CO₂ assumes
+a single occupant — carpooling divides it.
 
 ### Two scoring scales
 
@@ -63,6 +85,28 @@ Any point in greater Houston works — Katy, Sugar Land, and Galveston included.
 The World Cup venues and fan sites are still one keystroke away as starred suggestions, but they
 are a shortcut, not the menu.
 
+## Water stops
+
+Drinking fountains (`amenity=drinking_water`, `water_point`, `drinking_water=yes`) within 120 m
+of the route are pulled from the same Overpass round-trip, pinned on the map, listed in order
+with how far along the route they sit, and flagged on the individual turn they belong to.
+
+The headline number is not how many fountains exist but **the longest stretch without one** —
+the question that actually matters at 100 °F. Decorative fountains (`amenity=fountain`) are
+deliberately excluded: they are not potable, and pointing someone at one in that heat is worse
+than saying nothing.
+
+Two findings from the Houston data, both worth stating plainly:
+
+- Buffalo Bayou Park → Discovery Green on foot: **6 refill points**, longest dry stretch 1.0 km.
+- Rice University or Hermann Park → NRG Stadium on foot: **zero** mapped water within 120 m of
+  any route, for the whole ~5 km. Fountains exist in Hermann Park, but not along the corridor
+  people actually walk to the stadium.
+
+That second result is either a genuine gap in Houston's pedestrian infrastructure or a gap in
+OpenStreetMap's coverage of it. Both are worth knowing before a World Cup summer, and the app
+says which it can and cannot tell.
+
 ## Turn-by-turn directions
 
 Selecting a route produces exact directions built from OSRM's step data — with the shade layer
@@ -101,7 +145,7 @@ origin, destination, mode
    │
    ├─ OSRM (FOSSGIS public instances) ──────────► 1–3 fastest alternatives
    │
-   ├─ Overpass API over the route corridor ─────► parks, water, woods, trees
+   ├─ Overpass API over the route corridor ─────► parks, woods, trees, fountains
    │      └─ falls back to data/houston-green.json when Overpass rate-limits
    │
    ├─ pick large parks near the corridor ───────► re-route through each
@@ -110,8 +154,11 @@ origin, destination, mode
    │  green layer ─────────────────────────────► green %, shade %, big-road %
    │                                               → weighted 0–100 score
    │
-   └─ re-sample each OSRM step at 20 m ─────────► per-instruction shade / green
-                                                   → turn-by-turn directions
+   ├─ re-sample each OSRM step at 20 m ─────────► per-instruction shade / green
+   │                                               → turn-by-turn directions
+   │
+   └─ match fountains within 120 m of the line ─► water stops in route order
+                                                   → longest dry stretch
 ```
 
 ### Files
@@ -123,6 +170,7 @@ origin, destination, mode
 | [`js/routing.js`](js/routing.js) | OSRM calls, green-detour candidate generation |
 | [`js/places.js`](js/places.js) | type-ahead search, reverse geocoding, geolocation |
 | [`js/directions.js`](js/directions.js) | turn-by-turn instructions, per-step shade scoring |
+| [`js/water.js`](js/water.js) | drinking-water matching along a route, longest dry stretch |
 | [`js/greenspace.js`](js/greenspace.js) | Overpass query, caching, offline fallback, spatial indexing |
 | [`js/scoring.js`](js/scoring.js) | route metrics, normalisation, composite score, badges |
 | [`js/app.js`](js/app.js) | map, form, sliders, rendering |

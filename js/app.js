@@ -1,19 +1,21 @@
 // UI controller: wires the map, the place search, and the scoring pipeline together.
 
 import {
-  TILE_URL,
+  BASEMAPS,
   TILE_ATTR,
   HOUSTON_CENTER,
   PRESETS,
   MODES,
   DEFAULT_WEIGHTS,
   ROUTE_COLORS,
+  IMPACT_SOURCES,
 } from './config.js';
 import { bboxOf, padBbox, haversine } from './geo.js';
 import { fetchBaseRoutes, fetchViaRoute, pickGreenViaPoints, dedupe } from './routing.js';
 import { loadGreenLayer } from './greenspace.js';
 import { scoreRoutes, assignBadges, formatDistance, formatDuration } from './scoring.js';
 import { buildDirections, stepDistance } from './directions.js';
+import { assignStopsToSteps } from './water.js';
 import { suggestPlaces, resolvePlace, describeCoordinate, locateMe } from './places.js';
 
 const el = (id) => document.getElementById(id);
@@ -34,6 +36,9 @@ const state = {
   lines: [],
   markers: {},
   stepLayer: null,
+  basemap: 'natural',
+  waterLayer: null,
+  showWater: true,
   busy: false,
   directionsOpen: true,
 };
@@ -41,7 +46,16 @@ const state = {
 /* ---------------------------------------------------------------- map --- */
 
 const map = L.map('map', { zoomControl: true }).setView(HOUSTON_CENTER, 12);
-L.tileLayer(TILE_URL, { attribution: TILE_ATTR, maxZoom: 19 }).addTo(map);
+
+let basemap = L.tileLayer(BASEMAPS.natural.url, { attribution: TILE_ATTR, maxZoom: 19 }).addTo(map);
+
+function setBasemap(key) {
+  state.basemap = key;
+  map.removeLayer(basemap);
+  basemap = L.tileLayer(BASEMAPS[key].url, { attribution: TILE_ATTR, maxZoom: 19 }).addTo(map);
+  // Keep the tiles under the routes after swapping.
+  basemap.bringToBack();
+}
 
 function pinIcon(role) {
   return L.divIcon({
@@ -84,6 +98,35 @@ function clearRouteLines() {
   }
 }
 
+/** Blue dots for every refill point on the selected route. */
+function drawWater() {
+  if (state.waterLayer) {
+    map.removeLayer(state.waterLayer);
+    state.waterLayer = null;
+  }
+  const route = state.routes[state.selected];
+  if (!route?.water?.stops.length || !state.showWater) return;
+
+  state.waterLayer = L.layerGroup().addTo(map);
+  route.water.stops.forEach((stop, i) => {
+    L.marker(stop.coord, {
+      icon: L.divIcon({
+        className: '',
+        html: '<div class="water-pin">💧</div>',
+        iconSize: [22, 22],
+        iconAnchor: [11, 11],
+      }),
+      zIndexOffset: 600,
+    })
+      .bindTooltip(
+        `${stop.name || 'Drinking water'} — ${formatDistance(stop.distanceFromStart)} in`,
+        { direction: 'top' },
+      )
+      .on('click', () => focusWater(i))
+      .addTo(state.waterLayer);
+  });
+}
+
 function drawRoutes() {
   clearRouteLines();
   if (!state.routes.length) return;
@@ -113,6 +156,8 @@ function drawRoutes() {
     );
     state.lines.push(line);
   }
+
+  drawWater();
 }
 
 function fitToRoutes() {
@@ -421,8 +466,9 @@ function describeRun(count, layer) {
 
   const scope = layer.partial ? ' Part of this trip runs outside the bundled area.' : '';
   return (
-    `${count} routes compared against ${layer.counts.parks.toLocaleString()} green areas ` +
-    `and ${layer.counts.trees.toLocaleString()} mapped trees, from ${where}.${scope}`
+    `${count} routes compared against ${layer.counts.parks.toLocaleString()} green areas, ` +
+    `${layer.counts.trees.toLocaleString()} mapped trees and ` +
+    `${layer.counts.water.toLocaleString()} drinking fountains, from ${where}.${scope}`
   );
 }
 
@@ -439,8 +485,9 @@ function rescore({ fit = false } = {}) {
   state.selected = Math.min(state.selected, scored.length - 1);
 
   renderRoutes();
-  renderDetail();
   renderDirections();
+  renderWater();
+  renderDetail();
   drawRoutes();
   renderLegend();
   if (fit) fitToRoutes();
@@ -470,8 +517,9 @@ function select(index) {
   state.selected = index;
   state.activeStep = null;
   renderRoutes();
-  renderDetail();
   renderDirections();
+  renderWater();
+  renderDetail();
   drawRoutes();
 }
 
@@ -558,11 +606,23 @@ function renderDetail() {
       ? stat('CO₂ avoided', `${m.co2SavedVsDrivingKg.toFixed(2)} kg`, 'vs. driving the same trip solo')
       : stat('CO₂ emitted', `${m.co2Kg.toFixed(2)} kg`, `${m.transitCo2Kg.toFixed(2)} kg by METRO bus`);
 
+  el('impact-sources').innerHTML = IMPACT_SOURCES.map(
+    (entry) => `<li><b>${escapeHtml(entry.figure)}</b>${escapeHtml(entry.source)}</li>`,
+  ).join('');
+
   el('detail').innerHTML = `
     <div class="stats">
       ${heatCard}
       ${carbon}
-      ${stat('Beside green space', `${Math.round(m.greenShare * 100)}%`, 'parks, bayous, tree cover')}
+      ${
+        m.waterStops
+          ? stat(
+              'Water stops',
+              String(m.waterStops),
+              `longest dry stretch ${formatDistance(m.longestDryKm * 1000)}`,
+            )
+          : stat('Beside green space', `${Math.round(m.greenShare * 100)}%`, 'parks, bayous, tree cover')
+      }
       ${
         mode.kcalPerKm
           ? stat('Energy burned', `${Math.round(m.kcal)} kcal`, `${m.turns} turns to remember`)
@@ -593,6 +653,9 @@ function renderDirections() {
     state.places.destination?.label,
   );
 
+  // Which instruction is each refill point nearest to?
+  const waterByStep = assignStopsToSteps(route.water?.stops || [], state.directions);
+
   el('directions-title').textContent = `Directions · ${route.name}`;
   el('directions-summary').textContent =
     `${state.directions.length} steps · ${formatDistance(route.distance)} · ` +
@@ -602,6 +665,10 @@ function renderDirections() {
     .map((step) => {
       const chips = [];
       if (step.bigRoad) chips.push('<span class="chip chip-road">busy road</span>');
+      const stops = waterByStep.get(step.index);
+      if (stops?.length) {
+        chips.push(`<span class="chip chip-water">💧 water${stops.length > 1 ? ` ×${stops.length}` : ''}</span>`);
+      }
       if (step.shadeShare > 0.5) chips.push('<span class="chip chip-shade">shaded</span>');
       if (step.greenShare > 0.6) chips.push('<span class="chip chip-green">green</span>');
 
@@ -664,6 +731,50 @@ function focusStep(index) {
     .forEach((node) =>
       node.classList.toggle('is-active', Number(node.dataset.index) === index),
     );
+}
+
+function renderWater() {
+  const route = state.routes[state.selected];
+  const stops = route?.water?.stops || [];
+  el('water-card').hidden = !route;
+  if (!route) return;
+
+  const dryKm = route.metrics.longestDryKm;
+  const dry = formatDistance(dryKm * 1000);
+
+  el('water-summary').innerHTML = stops.length
+    ? `${stops.length} refill point${stops.length === 1 ? '' : 's'} within 120 m of this route. ` +
+      `Longest stretch without one: <span class="${dryKm > 2 ? 'dry-warning' : ''}">${dry}</span>.`
+    : 'No mapped drinking water within 120 m of this route — carry your own. ' +
+      'OpenStreetMap under-records fountains, so this is a floor, not a guarantee.';
+
+  el('water-list').innerHTML = stops
+    .map(
+      (stop, i) => `
+      <li class="water-stop" data-index="${i}">
+        <span class="water-icon">💧</span>
+        <span>
+          <span class="water-name">${escapeHtml(stop.name || 'Drinking fountain')}</span>
+          <span class="water-meta">
+            ${Math.round(stop.offRouteM)} m off route${stop.indoor ? ' · indoors' : ''}${
+              stop.seasonal ? ' · seasonal' : ''
+            }
+          </span>
+        </span>
+        <span class="water-at">${formatDistance(stop.distanceFromStart)} in</span>
+      </li>`,
+    )
+    .join('');
+
+  el('water-list')
+    .querySelectorAll('.water-stop')
+    .forEach((node) => node.addEventListener('click', () => focusWater(Number(node.dataset.index))));
+}
+
+function focusWater(index) {
+  const stop = state.routes[state.selected]?.water?.stops[index];
+  if (!stop) return;
+  map.setView(stop.coord, Math.max(map.getZoom(), 17), { animate: true });
 }
 
 function renderScoreModeHint() {
@@ -782,6 +893,18 @@ function init() {
   document.querySelectorAll('.pick-btn').forEach((btn) =>
     btn.addEventListener('click', () => armPick(btn.dataset.pick)),
   );
+
+  el('basemap-btn').addEventListener('click', () => {
+    const next = state.basemap === 'natural' ? 'minimal' : 'natural';
+    setBasemap(next);
+    el('basemap-btn').textContent = `🗺 ${BASEMAPS[next].label}`;
+  });
+
+  el('toggle-water').addEventListener('click', () => {
+    state.showWater = !state.showWater;
+    el('toggle-water').textContent = state.showWater ? 'hide on map' : 'show on map';
+    drawWater();
+  });
 
   el('toggle-directions').addEventListener('click', () => {
     state.directionsOpen = !state.directionsOpen;

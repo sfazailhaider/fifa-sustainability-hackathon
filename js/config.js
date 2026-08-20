@@ -1,6 +1,20 @@
 // Central configuration: endpoints, travel modes, scoring weights, Houston presets.
 
-export const TILE_URL = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+// Voyager is CARTO's natural-colour basemap — green parks, blue water, beige
+// arterials — which reads like a familiar road map and, more usefully here,
+// makes the green space the app scores on actually visible under the routes.
+// The pale "positron" style is kept as a second option for when the route
+// colours need to dominate.
+export const BASEMAPS = {
+  natural: {
+    label: 'Natural',
+    url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+  },
+  minimal: {
+    label: 'Minimal',
+    url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+  },
+};
 export const TILE_ATTR =
   '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
 
@@ -30,40 +44,79 @@ export const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search';
 export const SEARCH_BIAS = { lat: 29.7604, lon: -95.3698 };
 export const GREATER_HOUSTON = { s: 29.0, w: -96.2, n: 30.6, e: -94.6 };
 
+// IMPACT FACTORS
+//
+// Every number below is a published average applied to the routed distance —
+// none of it is measured, live, or specific to a given vehicle or person.
+// They are constants precisely so they are auditable and easy to replace; the
+// UI lists these sources under "Trip impact" rather than hiding them here.
 export const MODES = {
   car: {
     label: 'Drive',
     verb: 'Head',
     icon: '🚗',
-    // g CO2e per passenger-km. EPA average light-duty vehicle ~404 g/mi, single occupant.
+    // 404 g CO2/mile ÷ 1.609 — US EPA's typical passenger vehicle, one occupant.
     co2PerKm: 251,
     kcalPerKm: 0,
     // Only the walk/bike portion of a trip is heat-exposed; a car is (usually) air conditioned.
     heatExposed: false,
-    costPerKm: 0.42, // IRS-style all-in cost of operating a car, $/km
+    // $0.67/mile ÷ 1.609 — IRS 2024 standard mileage rate, which bundles fuel,
+    // maintenance, insurance and depreciation.
+    costPerKm: 0.42,
   },
   bike: {
     label: 'Bike',
     verb: 'Ride',
     icon: '🚲',
-    co2PerKm: 5, // lifecycle emissions of the bicycle itself
-    kcalPerKm: 30,
+    // Manufacturing and maintenance only. The European Cyclists' Federation
+    // puts cycling at ~21 g/km all-in, of which ~16 g is the extra food eaten;
+    // that part is reported separately here as calories, not carbon.
+    co2PerKm: 5,
+    kcalPerKm: 30, // ~500 kcal/h at a 16 km/h commuting pace
     heatExposed: true,
-    costPerKm: 0.03,
+    costPerKm: 0.03, // rough maintenance allowance — the softest number here
   },
   foot: {
     label: 'Walk',
     verb: 'Walk',
     icon: '🚶',
     co2PerKm: 0,
-    kcalPerKm: 62,
+    kcalPerKm: 62, // ~100 kcal/mile for a ~70 kg adult at moderate pace
     heatExposed: true,
     costPerKm: 0,
   },
 };
 
-// A METRO local bus, for the "what if you took transit" comparison line.
+// A METRO local bus at average occupancy, for the "what if you took transit"
+// comparison line: ~0.17 kg CO2 per passenger-mile (FTA transit averages).
 export const TRANSIT_CO2_PER_KM = 105;
+
+// Rendered in the UI so the provenance of each figure travels with the number.
+export const IMPACT_SOURCES = [
+  {
+    figure: 'Driving CO₂ — 251 g/km',
+    source: 'US EPA, typical passenger vehicle: ~404 g CO₂ per mile, single occupant',
+  },
+  {
+    figure: 'Cycling CO₂ — 5 g/km',
+    source: "European Cyclists' Federation lifecycle estimate, manufacturing share only",
+  },
+  { figure: 'Walking CO₂ — 0 g/km', source: 'no vehicle; dietary energy reported as calories' },
+  {
+    figure: 'Transit CO₂ — 105 g/km',
+    source: 'FTA transit averages, local bus at average occupancy (~0.17 kg/passenger-mile)',
+  },
+  { figure: 'Calories — 62 kcal/km walking, 30 cycling', source: '~100 kcal/mile, ~70 kg adult' },
+  { figure: 'Driving cost — $0.42/km', source: 'IRS 2024 standard mileage rate, $0.67/mile' },
+  {
+    figure: 'Unshaded minutes',
+    source: 'computed here: trip duration × the share of the route with no mapped canopy',
+  },
+  {
+    figure: 'Green, shade, water',
+    source: 'computed here from OpenStreetMap geometry along the route',
+  },
+];
 
 // Default weights for the composite "pleasantness" score. Tunable in the UI.
 export const DEFAULT_WEIGHTS = {

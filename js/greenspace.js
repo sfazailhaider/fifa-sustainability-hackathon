@@ -18,6 +18,9 @@ const GREEN_QUERY = (bbox) => `
   way["waterway"="riverbank"](${bbox});
   way["natural"="tree_row"](${bbox});
   node["natural"="tree"](${bbox});
+  node["amenity"~"^(drinking_water|water_point)$"](${bbox});
+  way["amenity"~"^(drinking_water|water_point)$"](${bbox});
+  node["drinking_water"="yes"](${bbox});
 );
 out geom;`;
 
@@ -25,6 +28,17 @@ const CACHE_PREFIX = 'hrc.green.';
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Decorative fountains (amenity=fountain) are deliberately excluded — they are
+// not potable, and telling someone to drink from one in 100 F heat is worse
+// than telling them nothing.
+function isDrinkingWater(tags = {}) {
+  return (
+    tags.amenity === 'drinking_water' ||
+    tags.amenity === 'water_point' ||
+    tags.drinking_water === 'yes'
+  );
+}
 
 function bboxString(bbox) {
   return `${bbox.s},${bbox.w},${bbox.n},${bbox.e}`;
@@ -164,7 +178,7 @@ function isClosed(geom) {
 
 /**
  * Fetch and index green features inside `bbox`.
- * Returns { proj, greenIndex, treeIndex, polygons, areas, counts, source }.
+ * Returns { proj, greenIndex, treeIndex, polygons, areas, water, counts, source }.
  */
 export async function loadGreenLayer(bbox) {
   const { elements, source, partial } = await fetchGreenElements(bbox);
@@ -175,11 +189,26 @@ export async function loadGreenLayer(bbox) {
   const polygons = [];
   const canopyPolygons = [];
   const areas = [];
+  const water = [];
   let treeCount = 0;
   let id = 0;
 
   for (const el of elements) {
     id++;
+
+    // Water first: a drinking fountain is a node too, and must not be
+    // mistaken for a tree.
+    if (isDrinkingWater(el.tags)) {
+      water.push({
+        id,
+        coord: el.geom[0],
+        name: el.tags.name || null,
+        kind: el.tags.amenity === 'water_point' ? 'water_point' : 'drinking_water',
+        indoor: el.tags.indoor === 'yes',
+        seasonal: el.tags.seasonal === 'yes',
+      });
+      continue;
+    }
 
     if (el.kind === 'node') {
       const xy = proj.toXY(el.geom[0]);
@@ -244,9 +273,15 @@ export async function loadGreenLayer(bbox) {
     polygons,
     canopyPolygons,
     areas,
+    water,
     source,
     partial: Boolean(partial),
-    counts: { features: elements.length, trees: treeCount, parks: polygons.length },
+    counts: {
+      features: elements.length,
+      trees: treeCount,
+      parks: polygons.length,
+      water: water.length,
+    },
   };
 }
 
