@@ -36,6 +36,7 @@ const state = {
   lines: [],
   markers: {},
   stepLayer: null,
+  labelLayer: null,
   basemap: 'natural',
   waterLayer: null,
   showWater: true,
@@ -158,6 +159,67 @@ function drawRoutes() {
   }
 
   drawWater();
+  drawRouteLabels();
+}
+
+// A point `fraction` of the way along the line, used to hang the time pill
+// somewhere on the route rather than at an endpoint.
+function pointAlong(points, fraction) {
+  let total = 0;
+  const steps = [];
+  for (let i = 1; i < points.length; i++) {
+    const d = haversine(points[i - 1], points[i]);
+    steps.push(d);
+    total += d;
+  }
+
+  let target = total * fraction;
+  for (let i = 0; i < steps.length; i++) {
+    if (target <= steps[i]) {
+      const t = steps[i] === 0 ? 0 : target / steps[i];
+      const a = points[i];
+      const b = points[i + 1];
+      return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+    }
+    target -= steps[i];
+  }
+  return points[Math.floor(points.length / 2)];
+}
+
+/** Google-style time pills sitting on each route line. */
+function drawRouteLabels() {
+  if (state.labelLayer) {
+    map.removeLayer(state.labelLayer);
+    state.labelLayer = null;
+  }
+  if (!state.routes.length) return;
+
+  state.labelLayer = L.layerGroup().addTo(map);
+
+  // Stagger the pills along the routes so overlapping alternatives don't
+  // stack their labels on top of each other.
+  const fractions = [0.5, 0.38, 0.62, 0.28, 0.72, 0.45];
+
+  state.routes.forEach((route, i) => {
+    const isSelected = i === state.selected;
+    const at = pointAlong(route.points, fractions[i % fractions.length]);
+
+    L.marker(at, {
+      icon: L.divIcon({
+        className: 'route-label',
+        html:
+          `<div class="route-pill ${isSelected ? 'is-selected' : ''}">` +
+          `${formatDuration(route.duration)}<small>${formatDistance(route.distance)}</small></div>`,
+        iconSize: [0, 0],
+        iconAnchor: [0, 0],
+      }),
+      // Selected label on top, and above the water pins.
+      zIndexOffset: isSelected ? 800 : 700,
+      interactive: true,
+    })
+      .on('click', () => select(i))
+      .addTo(state.labelLayer);
+  });
 }
 
 function fitToRoutes() {

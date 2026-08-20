@@ -507,7 +507,9 @@ input[type="text"],
 
 .swap-btn {
   display: block;
-  margin: -6px 0 8px auto;
+  /* The field above already contributes 12px, so pull back 4 to leave the
+     same 8px of air on both sides of the button. */
+  margin: -4px 0 8px auto;
   padding: 3px 9px;
   border: 1px solid var(--line);
   border-radius: 99px;
@@ -787,4 +789,43 @@ input[type="text"],
 .dry-warning {
   color: var(--warn);
   font-weight: 600;
+}
+
+/* ------------------------------------------------- on-map route labels --- */
+
+/* The divIcon container is zero-sized and sits exactly on the anchor point,
+   so the pill centres itself on the line with a transform. */
+.route-label .route-pill {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  pointer-events: auto;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid var(--line);
+  box-shadow: 0 1px 4px rgba(16, 32, 24, 0.28);
+  font: 600 12px/1.2 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: var(--ink);
+  white-space: nowrap;
+  text-align: center;
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+
+.route-label .route-pill:hover {
+  transform: translate(-50%, -50%) scale(1.06);
+}
+
+.route-label .route-pill.is-selected {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  box-shadow: 0 2px 7px rgba(16, 32, 24, 0.36);
+}
+
+.route-label .route-pill small {
+  display: block;
+  font-size: 10px;
+  font-weight: 500;
+  opacity: 0.72;
 }

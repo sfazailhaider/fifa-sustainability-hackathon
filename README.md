@@ -197,6 +197,15 @@ Routing by [OSRM](https://project-osrm.org/) via the FOSSGIS public instances. M
 Emission factors from the US EPA (average light-duty vehicle, 404 g CO₂/mile) and FTA transit
 averages.
 
-## License
+## Licence
 
-MIT
+The application code carries no licence, which means default copyright: it is ours, and nobody
+else may reuse it without permission. That is deliberate until the hackathon's terms are read —
+if they require the work to be open-sourced under a particular licence, or assign IP to the
+organisers, that decides it. Adding a licence later is a one-file change.
+
+One obligation is not ours to choose. [`data/houston-green.json`](data/houston-green.json) is a
+database extracted from OpenStreetMap, and OSM's [ODbL 1.0](data/LICENSE.md) share-alike terms
+travel with it: anyone redistributing that file must attribute OpenStreetMap contributors and
+keep it under ODbL. Rendered output — a map image, a route — is a Produced Work and needs only
+attribution, which is why the app credits OSM in the footer and on the map.
