@@ -58,12 +58,31 @@ function setBasemap(key) {
   basemap.bringToBack();
 }
 
+// Start is a plain white dot sitting on the point; the destination is a
+// teardrop pin whose tip marks the spot. Same convention as every other map
+// app, so nobody has to work out which end is which.
+const DESTINATION_PIN = `
+  <svg width="24" height="32" viewBox="0 0 24 32" aria-hidden="true">
+    <path d="M12 1C6.5 1 2 5.5 2 11c0 7.5 10 19.5 10 19.5S22 18.5 22 11C22 5.5 17.5 1 12 1z"
+          fill="#d93025" stroke="#fff" stroke-width="2" stroke-linejoin="round" />
+    <circle cx="12" cy="11" r="4" fill="#fff" />
+  </svg>`;
+
 function pinIcon(role) {
+  if (role === 'origin') {
+    return L.divIcon({
+      className: '',
+      html: '<div class="pin-start"></div>',
+      iconSize: [16, 16],
+      iconAnchor: [8, 8],
+    });
+  }
   return L.divIcon({
     className: '',
-    html: `<div class="pin pin-${role}"><span>${role === 'origin' ? '📍' : '🏁'}</span></div>`,
-    iconSize: [26, 26],
-    iconAnchor: [13, 24],
+    html: `<div class="pin-destination">${DESTINATION_PIN}</div>`,
+    iconSize: [24, 32],
+    // The tip of the teardrop, not its centre.
+    iconAnchor: [12, 31],
   });
 }
 
@@ -151,10 +170,8 @@ function drawRoutes() {
       .addTo(map)
       .on('click', () => select(i));
 
-    line.bindTooltip(
-      `${route.name} · ${formatDistance(route.distance)} · ${formatDuration(route.duration)}`,
-      { sticky: true },
-    );
+    // No hover tooltip: the time and distance are on a permanent label
+    // instead, so the information is there without asking for it.
     state.lines.push(line);
   }
 
@@ -209,7 +226,9 @@ function drawRouteLabels() {
         className: 'route-label',
         html:
           `<div class="route-pill ${isSelected ? 'is-selected' : ''}">` +
-          `${formatDuration(route.duration)}<small>${formatDistance(route.distance)}</small></div>`,
+          `<span class="route-pill-icon">${MODES[state.mode].icon}</span>` +
+          `<span class="route-pill-text"><b>${formatDuration(route.duration)}</b>` +
+          `<small>${formatDistance(route.distance)}</small></span></div>`,
         iconSize: [0, 0],
         iconAnchor: [0, 0],
       }),
