@@ -855,3 +855,78 @@ input[type="text"],
   position: relative;
   top: -1px;
 }
+
+/* -------------------------------------------- collapsible map panel --- */
+
+.map-panel {
+  position: absolute;
+  right: 12px;
+  bottom: 22px;
+  z-index: 600;
+  width: 290px;
+  max-width: calc(100% - 24px);
+  background: rgba(255, 255, 255, 0.97);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 4px 18px rgba(16, 32, 24, 0.18);
+  overflow: hidden;
+}
+
+.map-panel-toggle {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 9px 12px;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.map-panel-toggle:hover {
+  background: var(--accent-soft);
+}
+
+.map-panel-toggle .chev {
+  color: var(--muted);
+  font-size: 11px;
+  transition: transform 0.15s;
+}
+
+.map-panel-toggle[aria-expanded="true"] .chev {
+  transform: rotate(180deg);
+}
+
+.map-panel-body {
+  padding: 2px 12px 12px;
+  border-top: 1px solid var(--line);
+  /* Never taller than the map it floats over. */
+  max-height: min(60vh, 460px);
+  overflow-y: auto;
+}
+
+.map-panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin: 10px 0 8px;
+}
+
+@media (max-width: 900px) {
+  .map-panel {
+    width: 260px;
+    bottom: 12px;
+  }
+
+  .map-panel-body {
+    max-height: 40vh;
+  }
+}

@@ -39,10 +39,14 @@ export const PHOTON_SEARCH_URL = 'https://photon.komoot.io/api/';
 export const PHOTON_REVERSE_URL = 'https://photon.komoot.io/reverse';
 export const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search';
 
-// Results are biased toward Houston, not restricted to it — a fan staying in
-// Katy, Sugar Land, or Galveston still has to get to the stadium.
+// Results are biased toward Houston but searched across Texas. Restricting
+// the box to the metro made statewide queries silently wrong rather than
+// empty: "UT Austin" came back as UTMB Galveston, "Texas Tech" as an A&M
+// building in the medical center. Photon's lat/lon bias already floats local
+// results to the top, so the wider box costs nothing for in-town searches.
 export const SEARCH_BIAS = { lat: 29.7604, lon: -95.3698 };
 export const GREATER_HOUSTON = { s: 29.0, w: -96.2, n: 30.6, e: -94.6 };
+export const TEXAS = { s: 25.5, w: -107.0, n: 36.8, e: -93.3 };
 
 // IMPACT FACTORS
 //

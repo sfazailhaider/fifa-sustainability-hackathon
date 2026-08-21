@@ -99,27 +99,6 @@
           <p id="status" class="status" role="status" aria-live="polite"></p>
         </section>
 
-        <section class="card">
-          <h2>
-            What counts as "pleasant"?
-            <button id="reset-weights" class="link-btn" type="button">reset</button>
-          </h2>
-          <p class="hint">
-            Weights feed the composite score. Drag them and the ranking updates instantly — no
-            re-routing needed.
-          </p>
-          <div id="weights"></div>
-
-          <div class="field" style="margin: 14px 0 0">
-            <span>Scoring scale</span>
-            <div class="mode-row" id="score-mode-row" style="grid-template-columns: 1fr 1fr">
-              <button type="button" class="mode is-active" data-score="absolute">Absolute</button>
-              <button type="button" class="mode" data-score="relative">Relative</button>
-            </div>
-            <p class="hint" id="score-mode-hint" style="margin: 8px 0 0"></p>
-          </div>
-        </section>
-
         <section class="card" id="results-card" hidden>
           <h2>Routes</h2>
           <div id="routes"></div>
@@ -172,6 +151,39 @@
           </button>
         </div>
         <div class="map-legend" id="legend" hidden></div>
+
+        <div class="map-panel" id="weights-panel">
+          <button
+            type="button"
+            class="map-panel-toggle"
+            id="weights-toggle"
+            aria-expanded="false"
+            aria-controls="weights-body"
+          >
+            <span>⚖️ Scoring weights</span>
+            <span class="chev">▴</span>
+          </button>
+
+          <div class="map-panel-body" id="weights-body" hidden>
+            <div class="map-panel-head">
+              <span>What counts as "pleasant"?</span>
+              <button id="reset-weights" class="link-btn" type="button">reset</button>
+            </div>
+            <p class="hint">
+              Drag these and the ranking updates instantly — no re-routing needed.
+            </p>
+            <div id="weights"></div>
+
+            <div class="field" style="margin: 14px 0 0">
+              <span>Scoring scale</span>
+              <div class="mode-row" id="score-mode-row" style="grid-template-columns: 1fr 1fr">
+                <button type="button" class="mode is-active" data-score="absolute">Absolute</button>
+                <button type="button" class="mode" data-score="relative">Relative</button>
+              </div>
+              <p class="hint" id="score-mode-hint" style="margin: 8px 0 0"></p>
+            </div>
+          </div>
+        </div>
       </main>
     </div>
 

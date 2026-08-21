@@ -304,6 +304,7 @@ const PLACE_ICONS = {
   house: '🏠',
   residential: '🏠',
   lookup: '🔎',
+  alias: '🔤',
   street: '🛣',
   primary: '🛣',
   secondary: '🛣',
@@ -994,6 +995,13 @@ function init() {
   document.querySelectorAll('.pick-btn').forEach((btn) =>
     btn.addEventListener('click', () => armPick(btn.dataset.pick)),
   );
+
+  el('weights-toggle').addEventListener('click', () => {
+    const body = el('weights-body');
+    const open = body.hidden;
+    body.hidden = !open;
+    el('weights-toggle').setAttribute('aria-expanded', String(open));
+  });
 
   el('basemap-btn').addEventListener('click', () => {
     const next = state.basemap === 'natural' ? 'minimal' : 'natural';

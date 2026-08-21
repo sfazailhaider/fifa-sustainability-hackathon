@@ -11,8 +11,10 @@ import {
   NOMINATIM_URL,
   SEARCH_BIAS,
   GREATER_HOUSTON,
+  TEXAS,
   PRESETS,
 } from './config.js';
+import { exactAlias, matchAliases } from './aliases.js';
 
 const LAT_LON = /^\s*(-?\d{1,3}(?:\.\d+)?)\s*[, ]\s*(-?\d{1,3}(?:\.\d+)?)\s*$/;
 
@@ -56,8 +58,7 @@ function fromPhoton(feature) {
   };
 }
 
-function inGreaterHouston([lat, lon]) {
-  const b = GREATER_HOUSTON;
+function inBox([lat, lon], b) {
   return lat >= b.s && lat <= b.n && lon >= b.w && lon <= b.e;
 }
 
@@ -71,13 +72,14 @@ export function looksLikeAddress(text) {
  * ("1600 Main St" lands downtown rather than in Seabrook), but its usage
  * policy allows one-shot lookups only — never per-keystroke autocomplete.
  */
-// Metro-area city names, so "1600 Main St Katy" is not dragged into Houston.
-const METRO_CITIES =
-  /\b(houston|katy|sugar ?land|pearland|pasadena|baytown|conroe|the woodlands|spring|humble|kingwood|cypress|tomball|missouri city|stafford|bellaire|galveston|league city|friendswood|webster|seabrook|kemah|richmond|rosenberg|deer park|la porte|texas city|clear lake|atascocita|channelview|alvin|dickinson|santa fe|angleton|lake jackson|tx|texas)\b/i;
+// City names that mean "do not assume Houston". Covers the metro plus the
+// rest of Texas, so "1600 Guadalupe St Austin" is not dragged into Houston.
+const KNOWN_CITIES =
+  /\b(houston|katy|sugar ?land|pearland|pasadena|baytown|conroe|the woodlands|spring|humble|kingwood|cypress|tomball|missouri city|stafford|bellaire|galveston|league city|friendswood|webster|seabrook|kemah|richmond|rosenberg|deer park|la porte|texas city|clear lake|atascocita|channelview|alvin|dickinson|santa fe|angleton|lake jackson|austin|san antonio|dallas|fort worth|college station|bryan|waco|lubbock|el paso|corpus christi|amarillo|midland|odessa|laredo|beaumont|huntsville|denton|arlington|plano|tyler|abilene|killeen|round rock|tx|texas)\b/i;
 
 /** "1600 Main St" matches a Seabrook post office first without a city hint. */
 function withCityHint(text) {
-  if (METRO_CITIES.test(text) || /\b\d{5}\b/.test(text)) return text;
+  if (KNOWN_CITIES.test(text) || /\b\d{5}\b/.test(text)) return text;
   return `${text}, Houston, TX`;
 }
 
@@ -86,7 +88,7 @@ async function nominatimSearch(text, limit = 1) {
     format: 'json',
     q: withCityHint(text),
     limit: String(limit),
-    viewbox: `${GREATER_HOUSTON.w},${GREATER_HOUSTON.n},${GREATER_HOUSTON.e},${GREATER_HOUSTON.s}`,
+    viewbox: `${TEXAS.w},${TEXAS.n},${TEXAS.e},${TEXAS.s}`,
     bounded: '1',
   });
   const res = await fetch(`${NOMINATIM_URL}?${params}`);
@@ -140,15 +142,33 @@ export async function suggestPlaces(query, { signal } = {}) {
   const coordinate = parseCoordinates(query);
   if (coordinate) return [coordinate];
 
+  // "rga", "brc", "tmc tc" find nothing at any geocoder. Expand a known
+  // abbreviation before searching, and offer the near-matches as rows so a
+  // half-typed one still leads somewhere.
+  const matched = matchAliases(query);
+  const expanded = exactAlias(query);
+  const searchText = expanded ? expanded.full : query;
+
+  const aliasRows = matched
+    .filter((entry) => entry !== expanded)
+    .map((entry) => ({
+      coord: null,
+      query: entry.full,
+      label: entry.label,
+      detail: `${entry.keys[0].toUpperCase()} · abbreviation`,
+      kind: 'alias',
+    }));
+
   const presets = matchingPresets(query);
-  if (query.trim().length < 3) return presets;
+  if (query.trim().length < 2) return presets;
+  if (!expanded && query.trim().length < 3) return [...aliasRows, ...presets];
 
   const params = new URLSearchParams({
-    q: query,
+    q: searchText,
     lat: String(SEARCH_BIAS.lat),
     lon: String(SEARCH_BIAS.lon),
     limit: '8',
-    bbox: `${GREATER_HOUSTON.w},${GREATER_HOUSTON.s},${GREATER_HOUSTON.e},${GREATER_HOUSTON.n}`,
+    bbox: `${TEXAS.w},${TEXAS.s},${TEXAS.e},${TEXAS.n}`,
   });
 
   // House numbers are Photon's weak spot, so offer an explicit lookup the user
@@ -173,12 +193,23 @@ export async function suggestPlaces(query, { signal } = {}) {
     const remote = (data.features || [])
       .map(fromPhoton)
       // The bbox is a hint, not a guarantee, so re-check on the way out.
-      .filter((place) => inGreaterHouston(place.coord));
+      .filter((place) => inBox(place.coord, TEXAS))
+      .map((place) =>
+        // Say why an expansion matched, so "rga" showing Rice Graduate
+        // Apartments does not look like the search ignored what was typed.
+        expanded ? { ...place, detail: `${expanded.keys[0].toUpperCase()} · ${place.detail}` } : place,
+      );
 
-    return [...lookup, ...dedupeByCoord([...presets.slice(0, 2), ...remote])].slice(0, 8);
+    // An exact abbreviation is what the user asked for, so its real result
+    // leads and the near-miss rows ("uh" also offering UHD) follow it.
+    const head = expanded ? remote : [...presets.slice(0, 2), ...remote];
+    const ordered = expanded
+      ? [...lookup, ...dedupeByCoord(head), ...aliasRows]
+      : [...lookup, ...aliasRows, ...dedupeByCoord(head)];
+    return ordered.slice(0, 8);
   } catch (err) {
     if (err.name === 'AbortError') throw err;
-    return [...lookup, ...presets];
+    return [...lookup, ...aliasRows, ...presets];
   }
 }
 
@@ -193,6 +224,12 @@ export async function resolvePlace(query) {
   const exact = PRESETS.find((p) => p.name.toLowerCase() === text.toLowerCase());
   if (exact) return { coord: exact.coord, label: exact.name, detail: 'Houston landmark' };
 
+  const alias = exactAlias(text);
+  if (alias) {
+    const [best] = (await suggestPlaces(alias.full)).filter((place) => place.coord);
+    if (best) return best;
+  }
+
   // Street addresses go to Nominatim first; everything else to Photon first.
   if (looksLikeAddress(text)) {
     const [best] = await nominatimSearch(text, 1);
@@ -205,7 +242,7 @@ export async function resolvePlace(query) {
   const [fallback] = await nominatimSearch(text, 1);
   if (fallback) return fallback;
 
-  throw new Error(`Could not find "${text}" near Houston.`);
+  throw new Error(`Could not find "${text}" in Texas.`);
 }
 
 /** Name a coordinate the user picked off the map, so the box isn't just numbers. */
