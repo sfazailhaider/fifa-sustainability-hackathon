@@ -22,6 +22,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      # GitHub Pages serves assets with cache-control: max-age=600, so for ten
+      # minutes after a deploy a returning visitor gets the previous CSS and
+      # JS. Stamping the commit SHA onto every asset URL makes each deploy a
+      # new URL, so the browser fetches it immediately. This rewrites the
+      # checked-out copy only — the repo keeps clean, unversioned paths.
+      #
+      # ES modules are cached per-URL, so the relative imports inside js/ have
+      # to be stamped too, or app.js would load fresh and pull stale modules.
+      - name: Stamp asset URLs with the commit SHA
+        run: |
+          V="${GITHUB_SHA::8}"
+          sed -i "s|href=\"css/styles.css\"|href=\"css/styles.css?v=$V\"|" index.html
+          sed -i "s|src=\"js/app.js\"|src=\"js/app.js?v=$V\"|" index.html
+          sed -i -E "s|from '\./([a-zA-Z0-9_-]+\.js)'|from './\1?v=$V'|g" js/*.js
+          sed -i "s|'data/houston-green.json'|'data/houston-green.json?v=$V'|" js/config.js
+          echo "Stamped with v=$V"
+          grep -n "styles.css\|js/app.js" index.html
+
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
