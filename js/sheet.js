@@ -10,16 +10,15 @@
 //      quick flick carries to the next stop rather than falling back.
 
 const MOBILE = '(max-width: 900px)';
-const PEEK_PX = 64; // how much of the sheet stays on screen when minimised
+const PEEK_PX = 78; // how much of the sheet stays on screen when minimised
 
 const NO_SHEET = {
   snapTo() {},
-  setPeek() {},
   isMobile: () => false,
   current: () => 'full',
 };
 
-export function initSheet({ panel, handle, scroll, peek, onSnap }) {
+export function initSheet({ panel, handle, scroll, onSnap }) {
   // The sheet is an enhancement. If the environment cannot answer media
   // queries, fall back to the plain panel rather than taking the app down.
   if (!panel || !handle || typeof window.matchMedia !== 'function') return NO_SHEET;
@@ -165,10 +164,6 @@ export function initSheet({ panel, handle, scroll, peek, onSnap }) {
 
   return {
     snapTo,
-    /** Text shown beside the grip when the sheet is minimised. */
-    setPeek(text) {
-      if (peek) peek.textContent = text;
-    },
     isMobile: () => media.matches,
     current: () => current,
   };

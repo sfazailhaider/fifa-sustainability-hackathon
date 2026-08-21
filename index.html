@@ -26,7 +26,10 @@
         <button class="sheet-handle" id="sheet-handle" type="button"
                 aria-label="Resize panel — drag, or press to cycle size">
           <span class="sheet-grip"></span>
-          <span class="sheet-peek" id="sheet-peek">Plan a trip</span>
+          <span class="sheet-peek">
+            <span class="sheet-trip" id="sheet-trip">Plan a trip</span>
+            <span class="sheet-sub" id="sheet-sub"></span>
+          </span>
         </button>
 
         <div class="panel-scroll" id="panel-scroll">
@@ -158,8 +161,7 @@
             🗺 Natural
           </button>
         </div>
-        <div class="map-legend" id="legend" hidden></div>
-
+        <div class="map-stack">
         <div class="map-panel" id="weights-panel">
           <button
             type="button"
@@ -191,6 +193,9 @@
               <p class="hint" id="score-mode-hint" style="margin: 8px 0 0"></p>
             </div>
           </div>
+        </div>
+
+          <div class="map-legend" id="legend" hidden></div>
         </div>
       </main>
     </div>

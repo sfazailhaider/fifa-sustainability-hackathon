@@ -4,7 +4,6 @@ import {
   BASEMAPS,
   TILE_ATTR,
   HOUSTON_CENTER,
-  PRESETS,
   MODES,
   DEFAULT_WEIGHTS,
   ROUTE_COLORS,
@@ -20,6 +19,15 @@ import { suggestPlaces, resolvePlace, describeCoordinate, locateMe } from './pla
 import { initSheet } from './sheet.js';
 
 const el = (id) => document.getElementById(id);
+
+// Rice to Hermann Park: about a 20 minute walk that exercises every part of
+// the app — four distinct routes, 86% green, the best canopy in the city's
+// mapped data, water stops on the way, and a 58-76 spread so the ranking
+// visibly means something. A cross-town trek makes a poor first screen.
+const DEFAULT_TRIP = {
+  origin: { coord: [29.7174, -95.4018], label: 'Rice University', detail: 'Houston landmark' },
+  destination: { coord: [29.7157, -95.39], label: 'Hermann Park', detail: 'Houston landmark' },
+};
 
 const state = {
   mode: 'foot',
@@ -241,11 +249,46 @@ function drawRouteLabels() {
   });
 }
 
+/**
+ * How much of the map is hidden by furniture sitting on top of it, in pixels
+ * per edge. On a phone the bottom sheet covers the lower part of a
+ * full-screen map, so "centre of the map" is not the centre of the element —
+ * it is the centre of what you can actually see.
+ */
+function mapInsets() {
+  const base = window.innerWidth < 560 ? 24 : window.innerWidth < 900 ? 36 : 50;
+  const insets = { top: base, bottom: base, left: base, right: base };
+  if (!state.sheet?.isMobile()) return insets;
+
+  const mapRect = map.getContainer().getBoundingClientRect();
+  const sheetTop = el('panel').getBoundingClientRect().top;
+  const covered = Math.max(0, mapRect.bottom - sheetTop);
+
+  // Leave the view something to work with when the sheet is nearly full.
+  insets.bottom = base + Math.min(covered, mapRect.height * 0.6);
+  // Clear the floating tools and weights panel along the top edge.
+  insets.top = base + 44;
+  return insets;
+}
+
+function boundsOptions() {
+  const { top, bottom, left, right } = mapInsets();
+  return {
+    paddingTopLeft: [left, top],
+    paddingBottomRight: [right, bottom],
+  };
+}
+
 function fitToRoutes() {
   const bounds = L.latLngBounds(state.routes.flatMap((r) => r.points));
-  // A phone-sized map cannot afford desktop padding.
-  const pad = window.innerWidth < 560 ? 24 : window.innerWidth < 900 ? 36 : 50;
-  map.fitBounds(bounds, { padding: [pad, pad] });
+  map.fitBounds(bounds, boundsOptions());
+}
+
+/** Frame one route inside the visible part of the map. */
+function focusRoute(index) {
+  const route = state.routes[index];
+  if (!route) return;
+  map.flyToBounds(L.latLngBounds(route.points), { ...boundsOptions(), duration: 0.55 });
 }
 
 /* ---------------------------------------------------------- map picks --- */
@@ -451,17 +494,15 @@ function escapeHtml(text) {
 }
 
 /** Whatever is in the box, turned into a place — typed, picked, or dragged. */
-async function ensurePlace(role, fallbackName) {
+async function ensurePlace(role) {
   if (state.places[role]) return state.places[role];
 
   const input = el(role === 'origin' ? 'origin-input' : 'dest-input');
   const text = input.value.trim();
 
   if (!text) {
-    const preset = PRESETS.find((p) => p.name === fallbackName);
-    const place = { coord: preset.coord, label: preset.name, detail: 'Houston landmark' };
-    applyPlace(role, place);
-    return place;
+    applyPlace(role, DEFAULT_TRIP[role]);
+    return DEFAULT_TRIP[role];
   }
 
   const place = await resolvePlace(text);
@@ -477,11 +518,8 @@ async function compare() {
   setStatus('Finding your start and finish…');
 
   try {
-    const origin = await ensurePlace('origin', 'Discovery Green (Fan Festival site)');
-    const destination = await ensurePlace(
-      'destination',
-      'NRG Stadium (Houston Sports Park / WC26 venue)',
-    );
+    const origin = await ensurePlace('origin');
+    const destination = await ensurePlace('destination');
 
     setStatus('Asking the router for every sensible way there…');
     let candidates = await fetchBaseRoutes(state.mode, origin.coord, destination.coord);
@@ -556,15 +594,23 @@ async function compare() {
   }
 }
 
-/** What the collapsed sheet says about itself. */
+/**
+ * What the collapsed sheet says about itself: the trip on top, the result
+ * underneath. Minimised, this is the only thing on screen, so it has to name
+ * the trip rather than just count routes.
+ */
 function updatePeek() {
-  if (!state.sheet) return;
+  const { origin, destination } = state.places;
   const count = state.routes.length;
-  state.sheet.setPeek(
-    count
-      ? `${count} route${count === 1 ? '' : 's'} · ${MODES[state.mode].gerund}`
-      : 'Plan a trip',
-  );
+
+  el('sheet-trip').textContent =
+    origin && destination ? `${origin.label} → ${destination.label}` : 'Plan a trip';
+
+  const route = state.routes[state.selected];
+  el('sheet-sub').textContent = count
+    ? `${formatDuration(route.duration)} · ${formatDistance(route.distance)} · ` +
+      `${count} route${count === 1 ? '' : 's'} ${MODES[state.mode].gerund}`
+    : 'Search a start and a destination';
 }
 
 function describeRun(count, layer) {
@@ -631,7 +677,7 @@ function nameRoutes(routes) {
   }
 }
 
-function select(index) {
+function select(index, { focus = true } = {}) {
   state.selected = index;
   state.activeStep = null;
   renderRoutes();
@@ -640,6 +686,8 @@ function select(index) {
   renderDetail();
   drawRoutes();
   renderLegend();
+  updatePeek();
+  if (focus) focusRoute(index);
 }
 
 /* ------------------------------------------------------------ render --- */
@@ -1080,16 +1128,32 @@ function init() {
   renderScoreModeHint();
   watchViewport();
 
+  // Show the default trip straight away: boxes filled, pins on the map, and
+  // the sheet's summary line populated before anything is compared.
+  applyPlace('origin', DEFAULT_TRIP.origin);
+  applyPlace('destination', DEFAULT_TRIP.destination);
+  map.fitBounds(L.latLngBounds([DEFAULT_TRIP.origin.coord, DEFAULT_TRIP.destination.coord]), {
+    padding: [70, 70],
+  });
+
   state.sheet = initSheet({
     panel: el('panel'),
     handle: el('sheet-handle'),
     scroll: el('panel-scroll'),
-    peek: el('sheet-peek'),
-    // The visible map area changes with the sheet, so let Leaflet re-measure.
-    onSnap: () => setTimeout(() => map.invalidateSize(), 300),
+    // The visible map area changes with the sheet, so let Leaflet re-measure
+    // and re-frame the selected route for the space that is now available.
+    onSnap: () =>
+      setTimeout(() => {
+        map.invalidateSize();
+        if (state.routes.length) focusRoute(state.selected);
+      }, 320),
   });
   updatePeek();
-  setStatus('Search any Houston address, or just hit Compare for Discovery Green → NRG Stadium.');
+  setStatus('Hit Compare for Rice → Hermann Park, or search anywhere in Texas.');
 }
 
 init();
+
+// Test hooks: the browser harness needs to inspect map + state.
+window.__map = map;
+window.__state = state;

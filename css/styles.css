@@ -368,16 +368,28 @@ input[type="text"],
   position: relative;
 }
 
+/* Map furniture lives in one bottom-left column, next to the sidebar, so a
+   desktop user is not crossing the window to reach the controls. The weights
+   panel sits above the legend and grows upward when opened. */
+.map-stack {
+  position: absolute;
+  left: 12px;
+  bottom: 22px;
+  z-index: 600;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  width: 290px;
+  max-width: calc(100% - 24px);
+}
+
 #map {
   position: absolute;
   inset: 0;
 }
 
 .map-legend {
-  position: absolute;
-  left: 12px;
-  bottom: 22px;
-  z-index: 500;
   background: rgba(255, 255, 255, 0.95);
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -855,12 +867,8 @@ input[type="text"],
 /* -------------------------------------------- collapsible map panel --- */
 
 .map-panel {
-  position: absolute;
-  right: 12px;
-  bottom: 22px;
-  z-index: 600;
   width: 290px;
-  max-width: calc(100% - 24px);
+  max-width: 100%;
   background: rgba(255, 255, 255, 0.97);
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -888,9 +896,20 @@ input[type="text"],
 }
 
 .map-panel-toggle .chev {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
   color: var(--muted);
-  font-size: 11px;
-  transition: transform 0.15s;
+  font-size: 15px;
+  line-height: 1;
+  transition: transform 0.15s, background 0.12s;
+}
+
+.map-panel-toggle:hover .chev {
+  background: rgba(31, 122, 77, 0.12);
+  color: var(--accent);
 }
 
 .map-panel-toggle[aria-expanded="true"] .chev {
@@ -1182,8 +1201,31 @@ input[type="text"],
   }
 
   .sheet-peek {
-    font-size: 12px;
-    font-weight: 600;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  /* One line each, ellipsed — a long trip name must not wrap the sheet open. */
+  .sheet-trip,
+  .sheet-sub {
+    max-width: 86vw;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .sheet-trip {
+    font-size: 13.5px;
+    font-weight: 650;
+    color: var(--ink);
+  }
+
+  .sheet-sub {
+    font-size: 11.5px;
     color: var(--muted);
   }
 
@@ -1193,12 +1235,15 @@ input[type="text"],
     display: none;
   }
 
-  .map-panel {
+  .map-stack {
     top: 8px;
-    left: 8px;
-    right: auto;
     bottom: auto;
+    left: 8px;
     width: 180px;
+  }
+
+  .map-panel {
+    width: 100%;
     min-width: 0;
   }
 
