@@ -58,6 +58,7 @@ export const MODES = {
   car: {
     label: 'Drive',
     verb: 'Head',
+    gerund: 'driving',
     icon: '🚗',
     // 404 g CO2/mile ÷ 1.609 — US EPA's typical passenger vehicle, one occupant.
     co2PerKm: 251,
@@ -71,6 +72,7 @@ export const MODES = {
   bike: {
     label: 'Bike',
     verb: 'Ride',
+    gerund: 'cycling',
     icon: '🚲',
     // Manufacturing and maintenance only. The European Cyclists' Federation
     // puts cycling at ~21 g/km all-in, of which ~16 g is the extra food eaten;
@@ -83,6 +85,7 @@ export const MODES = {
   foot: {
     label: 'Walk',
     verb: 'Walk',
+    gerund: 'walking',
     icon: '🚶',
     co2PerKm: 0,
     kcalPerKm: 62, // ~100 kcal/mile for a ~70 kg adult at moderate pace

@@ -399,24 +399,7 @@ input[type="text"],
   color: var(--muted);
 }
 
-@media (max-width: 900px) {
-  .layout {
-    grid-template-columns: 1fr;
-    grid-template-rows: 55vh 45vh;
-    height: auto;
-    min-height: 100%;
-  }
 
-  .map-wrap {
-    order: -1;
-    min-height: 45vh;
-  }
-
-  .panel {
-    border-right: 0;
-    border-top: 1px solid var(--line);
-  }
-}
 
 /* ---------------------------------------------- place search combobox --- */
 
@@ -920,13 +903,165 @@ input[type="text"],
   margin: 10px 0 8px;
 }
 
+
+/* =========================================================== responsive ===
+   Desktop is a fixed sidebar beside a full-height map. Below 900px that
+   becomes a map on top and a normally-scrolling panel underneath, because a
+   nested scroll area inside a short viewport is miserable on a phone.
+   ======================================================================== */
+
+.legend-row {
+  width: 100%;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 12px;
+  color: var(--ink);
+  text-align: left;
+  padding: 3px 5px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.legend-row:hover {
+  background: var(--accent-soft);
+}
+
+.legend-row.is-selected {
+  background: var(--accent-soft);
+  font-weight: 650;
+}
+
 @media (max-width: 900px) {
+  html,
+  body {
+    height: auto;
+  }
+
+  .layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto;
+    height: auto;
+  }
+
+  /* Map first, and tall enough to actually read a route on. It scrolls away
+     with the page: pinning it would eat half the viewport for the whole of a
+     long directions list. */
+  .map-wrap {
+    order: -1;
+    height: 52vh;
+    min-height: 300px;
+  }
+
+  .panel {
+    overflow: visible;
+    border-right: 0;
+    border-top: 1px solid var(--line);
+    padding: 16px 14px 28px;
+  }
+
+  /* The map is short here, so its floating furniture must not swallow it.
+     Legend and weights share the bottom edge, each about half-width. */
+  .map-legend {
+    left: 8px;
+    bottom: 8px;
+    max-width: 46%;
+    font-size: 11px;
+    padding: 7px 8px;
+  }
+
   .map-panel {
-    width: 260px;
-    bottom: 12px;
+    right: 8px;
+    bottom: 8px;
+    width: 46%;
+    min-width: 168px;
   }
 
   .map-panel-body {
-    max-height: 40vh;
+    max-height: 34vh;
+  }
+
+  .map-tools {
+    top: 8px;
+    right: 8px;
+    left: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 5px;
+  }
+
+  .pick-btn {
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+
+  .directions {
+    max-height: none;
+  }
+}
+
+@media (max-width: 560px) {
+  .brand h1 {
+    font-size: 19px;
+  }
+
+  .card {
+    padding: 13px;
+  }
+
+  /* Touch targets: 16px input text also stops iOS zooming on focus. */
+  .field input {
+    font-size: 16px;
+    padding: 11px;
+  }
+
+  .mode {
+    padding: 11px 3px;
+  }
+
+  .primary {
+    padding: 13px;
+  }
+
+  .swap-btn,
+  .link-btn {
+    padding: 6px 10px;
+  }
+
+  .stats {
+    grid-template-columns: 1fr;
+  }
+
+  .dir-step,
+  .water-stop {
+    padding: 10px 6px;
+  }
+
+  /* Below this width the two floating boxes cannot sit side by side, so the
+     legend gives way — the route list in the panel says the same thing. */
+  .map-legend {
+    display: none;
+  }
+
+  .map-panel {
+    right: 8px;
+    left: 8px;
+    width: auto;
+  }
+
+  .route-pill-text b {
+    font-size: 12px;
+  }
+}
+
+/* Coarse pointers get no hover-only affordances. */
+@media (hover: none) {
+  .route:hover {
+    box-shadow: none;
+  }
+
+  .route-label .route-pill:hover {
+    transform: translate(-50%, -50%);
+    box-shadow: 0 1px 4px rgba(16, 32, 24, 0.3);
   }
 }

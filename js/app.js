@@ -21,7 +21,7 @@ import { suggestPlaces, resolvePlace, describeCoordinate, locateMe } from './pla
 const el = (id) => document.getElementById(id);
 
 const state = {
-  mode: 'bike',
+  mode: 'foot',
   scoreMode: 'absolute',
   weights: { ...DEFAULT_WEIGHTS },
   normalised: { ...DEFAULT_WEIGHTS },
@@ -241,7 +241,9 @@ function drawRouteLabels() {
 
 function fitToRoutes() {
   const bounds = L.latLngBounds(state.routes.flatMap((r) => r.points));
-  map.fitBounds(bounds, { padding: [50, 50] });
+  // A phone-sized map cannot afford desktop padding.
+  const pad = window.innerWidth < 560 ? 24 : window.innerWidth < 900 ? 36 : 50;
+  map.fitBounds(bounds, { padding: [pad, pad] });
 }
 
 /* ---------------------------------------------------------- map picks --- */
@@ -617,6 +619,7 @@ function select(index) {
   renderWater();
   renderDetail();
   drawRoutes();
+  renderLegend();
 }
 
 /* ------------------------------------------------------------ render --- */
@@ -756,7 +759,7 @@ function renderDirections() {
   el('directions-title').textContent = `Directions · ${route.name}`;
   el('directions-summary').textContent =
     `${state.directions.length} steps · ${formatDistance(route.distance)} · ` +
-    `${formatDuration(route.duration)} by ${MODES[state.mode].label.toLowerCase()}`;
+    `${formatDuration(route.duration)} ${MODES[state.mode].gerund}`;
 
   el('directions').innerHTML = state.directions
     .map((step) => {
@@ -889,12 +892,17 @@ function renderLegend() {
     state.routes
       .map(
         (route, i) => `
-        <div class="legend-row">
+        <button type="button" class="legend-row ${i === state.selected ? 'is-selected' : ''}"
+                data-index="${i}">
           <span class="legend-swatch" style="background:${route.color}"></span>
           <span>${escapeHtml(route.name)} — ${Math.round(route.pleasantness)}/100</span>
-        </div>`,
+        </button>`,
       )
       .join('');
+
+  legend
+    .querySelectorAll('.legend-row')
+    .forEach((node) => node.addEventListener('click', () => select(Number(node.dataset.index))));
 }
 
 /* ------------------------------------------------------------ weights --- */
@@ -943,6 +951,18 @@ function normaliseWeights() {
 }
 
 /* ---------------------------------------------------------------- init --- */
+
+// Leaflet caches its container size, so a rotation or a resize leaves the
+// map rendering into stale dimensions until it is told otherwise.
+function watchViewport() {
+  let timer = null;
+  const refresh = () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => map.invalidateSize(), 150);
+  };
+  window.addEventListener('resize', refresh);
+  window.addEventListener('orientationchange', refresh);
+}
 
 function init() {
   buildWeightSliders();
@@ -1038,6 +1058,7 @@ function init() {
   });
 
   renderScoreModeHint();
+  watchViewport();
   setStatus('Search any Houston address, or just hit Compare for Discovery Green → NRG Stadium.');
 }
 
