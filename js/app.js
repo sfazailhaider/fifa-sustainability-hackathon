@@ -159,10 +159,9 @@ function drawRoutes() {
   for (const i of order) {
     const route = state.routes[i];
     const isSelected = i === state.selected;
-    const colour = ROUTE_COLORS[i % ROUTE_COLORS.length];
 
     const line = L.polyline(route.points, {
-      color: colour,
+      color: route.color,
       weight: isSelected ? 6 : 4,
       opacity: isSelected ? 0.95 : 0.35,
       lineJoin: 'round',
@@ -213,19 +212,18 @@ function drawRouteLabels() {
 
   state.labelLayer = L.layerGroup().addTo(map);
 
-  // Stagger the pills along the routes so overlapping alternatives don't
-  // stack their labels on top of each other.
-  const fractions = [0.5, 0.38, 0.62, 0.28, 0.72, 0.45];
-
   state.routes.forEach((route, i) => {
     const isSelected = i === state.selected;
-    const at = pointAlong(route.points, fractions[i % fractions.length]);
+    // route.labelAt is fixed per route (see compare) so overlapping
+    // alternatives keep distinct, stable label positions.
+    const at = pointAlong(route.points, route.labelAt ?? 0.5);
 
     L.marker(at, {
       icon: L.divIcon({
         className: 'route-label',
         html:
-          `<div class="route-pill ${isSelected ? 'is-selected' : ''}">` +
+          `<div class="route-pill ${isSelected ? 'is-selected' : ''}"` +
+          `${isSelected ? ` style="background:${route.color};border-color:${route.color}"` : ''}>` +
           `<span class="route-pill-icon">${MODES[state.mode].icon}</span>` +
           `<span class="route-pill-text"><b>${formatDuration(route.duration)}</b>` +
           `<small>${formatDistance(route.distance)}</small></span></div>`,
@@ -522,6 +520,17 @@ async function compare() {
     const shortest = Math.min(...candidates.map((r) => r.distance));
     candidates = candidates.filter((r) => r.distance <= shortest * 1.9).slice(0, 6);
 
+    // Colour belongs to the route, and is assigned here exactly once.
+    // Everything downstream reads route.color instead of its list index, so
+    // changing the weights reorders the list without repainting the map.
+    // The label offset is pinned here too, so labels stay put on rerank
+    // instead of sliding along their lines.
+    const offsets = [0.5, 0.38, 0.62, 0.28, 0.72, 0.45];
+    candidates.forEach((route, i) => {
+      route.color = ROUTE_COLORS[i % ROUTE_COLORS.length];
+      route.labelAt = offsets[i % offsets.length];
+    });
+
     state.layer = layer;
     state.rawRoutes = candidates;
     state.selected = 0;
@@ -621,7 +630,6 @@ function renderRoutes() {
 
   el('routes').innerHTML = state.routes
     .map((route, i) => {
-      const colour = ROUTE_COLORS[i % ROUTE_COLORS.length];
       const m = route.metrics;
       const badges = route.badges
         .map((b) => `<span class="badge">${b.label}</span>`)
@@ -633,10 +641,12 @@ function renderRoutes() {
         .join('');
 
       return `
-        <div class="route ${i === state.selected ? 'is-selected' : ''}"
-             style="border-left-color:${colour}" data-index="${i}">
+        <div class="route ${i === state.selected ? 'is-selected' : ''}" data-index="${i}">
           <div class="route-top">
-            <span class="route-name">${escapeHtml(route.name)}</span>
+            <span class="route-name">
+              <span class="route-swatch" style="background:${route.color}"></span>
+              ${escapeHtml(route.name)}
+            </span>
             <span class="route-score"><b>${Math.round(route.pleasantness)}</b>/100</span>
           </div>
           <div class="route-sub">
@@ -874,7 +884,7 @@ function renderLegend() {
       .map(
         (route, i) => `
         <div class="legend-row">
-          <span class="legend-swatch" style="background:${ROUTE_COLORS[i % ROUTE_COLORS.length]}"></span>
+          <span class="legend-swatch" style="background:${route.color}"></span>
           <span>${escapeHtml(route.name)} — ${Math.round(route.pleasantness)}/100</span>
         </div>`,
       )

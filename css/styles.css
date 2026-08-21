@@ -216,20 +216,21 @@ input[type="text"],
 
 .route {
   border: 1px solid var(--line);
-  border-left: 5px solid var(--line);
   border-radius: 10px;
   padding: 11px 12px;
   margin-bottom: 9px;
   cursor: pointer;
   background: #fff;
-  transition: box-shadow 0.12s, transform 0.12s;
+  transition: box-shadow 0.12s, border-color 0.12s;
 }
 
 .route:hover {
   box-shadow: var(--shadow);
 }
 
+/* With no colour strip on the card, selection has to carry itself. */
 .route.is-selected {
+  border-color: var(--accent);
   box-shadow: 0 0 0 2px var(--accent-soft), var(--shadow);
 }
 
@@ -840,4 +841,17 @@ input[type="text"],
 .pin-destination {
   line-height: 0;
   filter: drop-shadow(0 1px 3px rgba(16, 32, 24, 0.4));
+}
+
+/* A short bar that reads as the line drawn on the map, replacing the old
+   full-height colour strip on the card edge. */
+.route-swatch {
+  display: inline-block;
+  width: 16px;
+  height: 4px;
+  border-radius: 99px;
+  margin-right: 7px;
+  vertical-align: middle;
+  position: relative;
+  top: -1px;
 }
