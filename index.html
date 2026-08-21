@@ -22,7 +22,14 @@
   </head>
   <body>
     <div class="layout">
-      <aside class="panel">
+      <aside class="panel" id="panel">
+        <button class="sheet-handle" id="sheet-handle" type="button"
+                aria-label="Resize panel — drag, or press to cycle size">
+          <span class="sheet-grip"></span>
+          <span class="sheet-peek" id="sheet-peek">Plan a trip</span>
+        </button>
+
+        <div class="panel-scroll" id="panel-scroll">
         <header class="brand">
           <div class="brand-mark">🌳</div>
           <div>
@@ -139,6 +146,7 @@
             Hackathon.
           </p>
         </footer>
+        </div>
       </aside>
 
       <main class="map-wrap">

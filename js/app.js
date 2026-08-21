@@ -17,6 +17,7 @@ import { scoreRoutes, assignBadges, formatDistance, formatDuration } from './sco
 import { buildDirections, stepDistance } from './directions.js';
 import { assignStopsToSteps } from './water.js';
 import { suggestPlaces, resolvePlace, describeCoordinate, locateMe } from './places.js';
+import { initSheet } from './sheet.js';
 
 const el = (id) => document.getElementById(id);
 
@@ -42,6 +43,7 @@ const state = {
   showWater: true,
   busy: false,
   directionsOpen: true,
+  sheet: null,
 };
 
 /* ---------------------------------------------------------------- map --- */
@@ -540,12 +542,29 @@ async function compare() {
     rescore({ fit: true });
 
     setStatus(describeRun(candidates.length, layer));
+
+    // On a phone the results are inside the sheet, so bring it up far enough
+    // to show them rather than leaving the answer hidden below the fold.
+    if (state.sheet?.isMobile() && state.sheet.current() === 'min') {
+      state.sheet.snapTo('half');
+    }
   } catch (err) {
     console.error(err);
     setStatus(err.message || 'Something went wrong. Try again.', true);
   } finally {
     setBusy(false);
   }
+}
+
+/** What the collapsed sheet says about itself. */
+function updatePeek() {
+  if (!state.sheet) return;
+  const count = state.routes.length;
+  state.sheet.setPeek(
+    count
+      ? `${count} route${count === 1 ? '' : 's'} · ${MODES[state.mode].gerund}`
+      : 'Plan a trip',
+  );
 }
 
 function describeRun(count, layer) {
@@ -588,6 +607,7 @@ function rescore({ fit = false } = {}) {
   renderDetail();
   drawRoutes();
   renderLegend();
+  updatePeek();
   if (fit) fitToRoutes();
 }
 
@@ -1059,6 +1079,16 @@ function init() {
 
   renderScoreModeHint();
   watchViewport();
+
+  state.sheet = initSheet({
+    panel: el('panel'),
+    handle: el('sheet-handle'),
+    scroll: el('panel-scroll'),
+    peek: el('sheet-peek'),
+    // The visible map area changes with the sheet, so let Leaflet re-measure.
+    onSnap: () => setTimeout(() => map.invalidateSize(), 300),
+  });
+  updatePeek();
   setStatus('Search any Houston address, or just hit Compare for Discovery Green → NRG Stadium.');
 }
 
