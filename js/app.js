@@ -1128,14 +1128,6 @@ function init() {
   renderScoreModeHint();
   watchViewport();
 
-  // Show the default trip straight away: boxes filled, pins on the map, and
-  // the sheet's summary line populated before anything is compared.
-  applyPlace('origin', DEFAULT_TRIP.origin);
-  applyPlace('destination', DEFAULT_TRIP.destination);
-  map.fitBounds(L.latLngBounds([DEFAULT_TRIP.origin.coord, DEFAULT_TRIP.destination.coord]), {
-    padding: [70, 70],
-  });
-
   state.sheet = initSheet({
     panel: el('panel'),
     handle: el('sheet-handle'),
