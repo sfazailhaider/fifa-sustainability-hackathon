@@ -29,6 +29,7 @@ const state = {
   rawRoutes: [],
   routes: [],
   selected: 0,
+  selectedId: null,
   directions: [],
   activeStep: null,
   layer: null,
@@ -527,6 +528,7 @@ async function compare() {
     // instead of sliding along their lines.
     const offsets = [0.5, 0.38, 0.62, 0.28, 0.72, 0.45];
     candidates.forEach((route, i) => {
+      route.id = i;
       route.color = ROUTE_COLORS[i % ROUTE_COLORS.length];
       route.labelAt = offsets[i % offsets.length];
     });
@@ -534,6 +536,7 @@ async function compare() {
     state.layer = layer;
     state.rawRoutes = candidates;
     state.selected = 0;
+    state.selectedId = null;
     rescore({ fit: true });
 
     setStatus(describeRun(candidates.length, layer));
@@ -572,7 +575,13 @@ function rescore({ fit = false } = {}) {
   nameRoutes(scored);
 
   state.routes = scored;
-  state.selected = Math.min(state.selected, scored.length - 1);
+
+  // Selection follows the route itself. Reranking moves rows around, and an
+  // index would silently hand the selection to whichever route inherited the
+  // old position.
+  const stillThere = scored.findIndex((route) => route.id === state.selectedId);
+  state.selected = stillThere >= 0 ? stillThere : 0;
+  state.selectedId = scored[state.selected]?.id ?? null;
 
   renderRoutes();
   renderDirections();
@@ -605,6 +614,7 @@ function nameRoutes(routes) {
 
 function select(index) {
   state.selected = index;
+  state.selectedId = state.routes[index]?.id ?? null;
   state.activeStep = null;
   renderRoutes();
   renderDirections();
