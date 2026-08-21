@@ -72,7 +72,10 @@ would have offered.
 
 ## Picking places
 
-Any point in greater Houston works — Katy, Sugar Land, and Galveston included. Four ways in:
+Any point in Texas works. The search is *biased* to Houston rather than restricted to it: an
+earlier metro-only bounding box did not return "no results" for out-of-town queries, it returned
+confidently wrong ones — "UT Austin" resolved to UT Medical Branch in Galveston, "Texas Tech" to
+an A&M building in the medical center. Five ways in:
 
 - **Type anything.** Live suggestions from [Photon](https://photon.komoot.io/), an OSM geocoder
   built for type-ahead. (Nominatim's usage policy forbids autocomplete, so it is kept as a
@@ -81,6 +84,11 @@ Any point in greater Houston works — Katy, Sugar Land, and Galveston included.
   the box shows a real name rather than a coordinate pair.
 - **Drag the pins.** Either endpoint can be dragged; the comparison re-runs on drop.
 - **Paste coordinates**, or use ◎ for the browser's own location.
+- **Type a local abbreviation.** `rga`, `brc`, `hmns`, `tmc tc`, `mda`, `tamu`, `ut austin` and
+  ~40 others expand to names the geocoder can actually resolve — see
+  [`js/aliases.js`](js/aliases.js). Every expansion was checked against live Photon before being
+  added, and ones that resolved to the *wrong* place were left out rather than shipped: TDECU
+  Stadium comes back as Shell Energy Stadium, so it is absent by choice.
 
 The World Cup venues and fan sites are still one keystroke away as starred suggestions, but they
 are a shortcut, not the menu.
@@ -169,6 +177,8 @@ origin, destination, mode
 | [`js/geo.js`](js/geo.js) | haversine, local projection, path resampling, point-in-polygon, grid index |
 | [`js/routing.js`](js/routing.js) | OSRM calls, green-detour candidate generation |
 | [`js/places.js`](js/places.js) | type-ahead search, reverse geocoding, geolocation |
+| [`js/aliases.js`](js/aliases.js) | local abbreviations expanded to resolvable place names |
+| [`js/sheet.js`](js/sheet.js) | the draggable mobile bottom sheet and its snap points |
 | [`js/directions.js`](js/directions.js) | turn-by-turn instructions, per-step shade scoring |
 | [`js/water.js`](js/water.js) | drinking-water matching along a route, longest dry stretch |
 | [`js/greenspace.js`](js/greenspace.js) | Overpass query, caching, offline fallback, spatial indexing |

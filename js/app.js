@@ -228,6 +228,30 @@ function pointAlong(points, fraction) {
   return points[Math.floor(points.length / 2)];
 }
 
+const LABEL_CLEARANCE_PX = 64;
+
+/**
+ * Where to hang a route's label. Normally its fixed position along the line;
+ * if that lands on top of `avoid`, walk along the route in both directions
+ * until the label is clear of it.
+ */
+function labelPoint(route, avoid) {
+  const base = route.labelAt ?? 0.5;
+  if (!avoid) return pointAlong(route.points, base);
+
+  const target = map.latLngToContainerPoint(avoid);
+  const offsets = [0, 0.12, -0.12, 0.24, -0.24, 0.36, -0.36];
+
+  for (const offset of offsets) {
+    const fraction = base + offset;
+    if (fraction < 0.05 || fraction > 0.95) continue;
+    const candidate = pointAlong(route.points, fraction);
+    const distance = map.latLngToContainerPoint(candidate).distanceTo(target);
+    if (distance > LABEL_CLEARANCE_PX) return candidate;
+  }
+  return pointAlong(route.points, base);
+}
+
 /** Google-style time pills sitting on each route line. */
 function drawRouteLabels() {
   if (state.labelLayer) {
@@ -238,11 +262,16 @@ function drawRouteLabels() {
 
   state.labelLayer = L.layerGroup().addTo(map);
 
+  // The focused turn marker must stay readable; a label sitting on top of it
+  // is worse than a label a little further along the line.
+  const avoid =
+    state.activeStep != null ? state.directions[state.activeStep]?.location : null;
+
   state.routes.forEach((route, i) => {
     const isSelected = i === state.selected;
     // route.labelAt is fixed per route (see compare) so overlapping
     // alternatives keep distinct, stable label positions.
-    const at = pointAlong(route.points, route.labelAt ?? 0.5);
+    const at = labelPoint(route, avoid);
 
     L.marker(at, {
       icon: L.divIcon({
@@ -926,6 +955,9 @@ function focusStep(index) {
 
   // Same framing rules as selecting a route: frame the manoeuvre inside the
   // visible part of the map, not the centre of the element.
+  // Clearance is measured in screen pixels, so wait for the final zoom.
+  map.once('moveend', drawRouteLabels);
+
   if (step.points.length > 1) {
     map.flyToBounds(L.latLngBounds(step.points), {
       ...boundsOptions(),
@@ -984,7 +1016,14 @@ function renderWater() {
 function focusWater(index) {
   const stop = state.routes[state.selected]?.water?.stops[index];
   if (!stop) return;
-  map.setView(stop.coord, Math.max(map.getZoom(), 17), { animate: true });
+  // Same rule as routes and turns: centre it in the visible map, not the
+  // middle of an element the sheet is sitting on.
+  map.flyTo(offsetForVisibleArea(stop.coord), Math.max(map.getZoom(), 17), { duration: 0.5 });
+}
+
+function setWeightsOpen(open) {
+  el('weights-body').hidden = !open;
+  el('weights-toggle').setAttribute('aria-expanded', String(open));
 }
 
 function renderScoreModeHint() {
@@ -1122,10 +1161,23 @@ function init() {
   );
 
   el('weights-toggle').addEventListener('click', () => {
-    const body = el('weights-body');
-    const open = body.hidden;
-    body.hidden = !open;
-    el('weights-toggle').setAttribute('aria-expanded', String(open));
+    setWeightsOpen(el('weights-body').hidden);
+  });
+
+  // An open panel covers the map, so anything aimed past it should shut it.
+  // Capture phase, because Leaflet handles map clicks before they bubble.
+  document.addEventListener(
+    'pointerdown',
+    (event) => {
+      if (el('weights-body').hidden) return;
+      if (el('weights-panel').contains(event.target)) return;
+      setWeightsOpen(false);
+    },
+    true,
+  );
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !el('weights-body').hidden) setWeightsOpen(false);
   });
 
   el('basemap-btn').addEventListener('click', () => {
