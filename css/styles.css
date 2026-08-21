@@ -396,7 +396,6 @@ input[type="text"],
   padding: 9px 11px;
   font-size: 12px;
   box-shadow: var(--shadow);
-  max-width: 260px;
 }
 
 .legend-row {
@@ -674,8 +673,12 @@ input[type="text"],
 }
 
 .sources summary {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 30px;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 12.5px;
   color: var(--muted);
   list-style: none;
 }
@@ -684,12 +687,28 @@ input[type="text"],
   display: none;
 }
 
+/* One glyph, rotated — same treatment as the scoring-weights chevron, and
+   big enough to see and to hit. */
 .sources summary::before {
-  content: "▸ ";
+  content: "▸";
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  font-size: 14px;
+  line-height: 1;
+  transition: transform 0.15s, background 0.12s, color 0.12s;
+}
+
+.sources summary:hover::before {
+  background: rgba(31, 122, 77, 0.12);
+  color: var(--accent);
 }
 
 .sources[open] summary::before {
-  content: "▾ ";
+  transform: rotate(90deg);
 }
 
 .sources ul {
@@ -867,8 +886,7 @@ input[type="text"],
 /* -------------------------------------------- collapsible map panel --- */
 
 .map-panel {
-  width: 290px;
-  max-width: 100%;
+  width: 100%;
   background: rgba(255, 255, 255, 0.97);
   border: 1px solid var(--line);
   border-radius: 10px;

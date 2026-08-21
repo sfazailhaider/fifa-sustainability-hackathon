@@ -58,12 +58,28 @@ const state = {
 
 const map = L.map('map', { zoomControl: true }).setView(HOUSTON_CENTER, 12);
 
-let basemap = L.tileLayer(BASEMAPS.natural.url, { attribution: TILE_ATTR, maxZoom: 19 }).addTo(map);
+let tileFailures = 0;
+
+function makeBasemap(url) {
+  const layer = L.tileLayer(url, { attribution: TILE_ATTR, maxZoom: 19 });
+  // A throttled CDN shows as grey squares with no error anywhere. Count the
+  // misses and fall back to OSM's own tiles rather than leave a broken map.
+  layer.on('tileerror', () => {
+    tileFailures += 1;
+    if (tileFailures === 10 && state.basemap !== 'fallback') {
+      setBasemap('fallback');
+      setStatus('Map tiles were failing, so the basemap switched to OpenStreetMap.');
+    }
+  });
+  return layer;
+}
+
+let basemap = makeBasemap(BASEMAPS.natural.url).addTo(map);
 
 function setBasemap(key) {
   state.basemap = key;
   map.removeLayer(basemap);
-  basemap = L.tileLayer(BASEMAPS[key].url, { attribution: TILE_ATTR, maxZoom: 19 }).addTo(map);
+  basemap = makeBasemap(BASEMAPS[key].url).addTo(map);
   // Keep the tiles under the routes after swapping.
   basemap.bringToBack();
 }
@@ -282,6 +298,19 @@ function boundsOptions() {
 function fitToRoutes() {
   const bounds = L.latLngBounds(state.routes.flatMap((r) => r.points));
   map.fitBounds(bounds, boundsOptions());
+}
+
+/**
+ * Shift a target point so it lands in the middle of the *visible* map rather
+ * than the middle of the element, for the cases where there is no extent to
+ * fit and flyToBounds cannot be used.
+ */
+function offsetForVisibleArea(coord) {
+  const { top, bottom } = mapInsets();
+  const shift = (bottom - top) / 2;
+  if (Math.abs(shift) < 1) return coord;
+  const point = map.project(coord, map.getZoom());
+  return map.unproject(L.point(point.x, point.y + shift), map.getZoom());
 }
 
 /** Frame one route inside the visible part of the map. */
@@ -611,6 +640,9 @@ function updatePeek() {
     ? `${formatDuration(route.duration)} · ${formatDistance(route.distance)} · ` +
       `${count} route${count === 1 ? '' : 's'} ${MODES[state.mode].gerund}`
     : 'Search a start and a destination';
+
+  // The handle just changed height, so the minimised stop moved with it.
+  state.sheet?.refresh();
 }
 
 function describeRun(count, layer) {
@@ -892,7 +924,17 @@ function focusStep(index) {
     .bindTooltip(step.instruction, { direction: 'top', permanent: false })
     .addTo(state.stepLayer);
 
-  map.setView(step.location, Math.max(map.getZoom(), 16), { animate: true });
+  // Same framing rules as selecting a route: frame the manoeuvre inside the
+  // visible part of the map, not the centre of the element.
+  if (step.points.length > 1) {
+    map.flyToBounds(L.latLngBounds(step.points), {
+      ...boundsOptions(),
+      maxZoom: 17,
+      duration: 0.5,
+    });
+  } else {
+    map.flyTo(offsetForVisibleArea(step.location), Math.max(map.getZoom(), 17), { duration: 0.5 });
+  }
 
   el('directions')
     .querySelectorAll('.dir-step')

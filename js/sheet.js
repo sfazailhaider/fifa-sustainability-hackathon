@@ -10,7 +10,8 @@
 //      quick flick carries to the next stop rather than falling back.
 
 const MOBILE = '(max-width: 900px)';
-const PEEK_PX = 78; // how much of the sheet stays on screen when minimised
+// Minimised, the sheet shows exactly its handle. Guessing a pixel value left
+// a sliver of the list peeking out below the summary.
 
 const NO_SHEET = {
   snapTo() {},
@@ -36,12 +37,17 @@ export function initSheet({ panel, handle, scroll, onSnap }) {
 
   let sheetHeight = 0;
 
+  function handleHeight() {
+    return handle.getBoundingClientRect().height;
+  }
+
   function measure() {
     sheetHeight = panel.getBoundingClientRect().height;
     snaps = {
       full: 0,
       half: Math.max(0, sheetHeight - window.innerHeight * 0.46),
-      min: Math.max(0, sheetHeight - PEEK_PX),
+      // Exactly the handle, so nothing of the list shows below the summary.
+      min: Math.max(0, sheetHeight - handleHeight()),
     };
   }
 
@@ -53,9 +59,12 @@ export function initSheet({ panel, handle, scroll, onSnap }) {
    */
   function fitScrollArea(name) {
     if (!scroll) return;
-    const visible = { full: sheetHeight, half: window.innerHeight * 0.46, min: PEEK_PX }[name];
-    const handleHeight = handle.getBoundingClientRect().height;
-    scroll.style.height = `${Math.max(0, Math.round(visible - handleHeight))}px`;
+    if (name === 'min') {
+      scroll.style.height = '0px';
+      return;
+    }
+    const visible = name === 'full' ? sheetHeight : window.innerHeight * 0.46;
+    scroll.style.height = `${Math.max(0, Math.round(visible - handleHeight()))}px`;
   }
 
   function apply(offset) {
@@ -63,6 +72,10 @@ export function initSheet({ panel, handle, scroll, onSnap }) {
   }
 
   function snapTo(name, { animate = true } = {}) {
+    // The handle grows once the trip summary lands in it, and the minimised
+    // stop is defined by that height — so re-measure rather than trust the
+    // numbers taken before the text existed.
+    measure();
     current = name;
     panel.classList.toggle('is-dragging', !animate);
     apply(snaps[name]);
@@ -164,6 +177,11 @@ export function initSheet({ panel, handle, scroll, onSnap }) {
 
   return {
     snapTo,
+    /** Re-apply the current stop after the handle's contents change size. */
+    refresh() {
+      if (!media.matches) return;
+      snapTo(current);
+    },
     isMobile: () => media.matches,
     current: () => current,
   };

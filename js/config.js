@@ -14,6 +14,11 @@ export const BASEMAPS = {
     label: 'Minimal',
     url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
   },
+  // Different provider entirely, used automatically if CARTO starts failing.
+  fallback: {
+    label: 'OSM',
+    url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+  },
 };
 export const TILE_ATTR =
   '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
