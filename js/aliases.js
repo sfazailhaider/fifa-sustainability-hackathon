@@ -21,6 +21,7 @@ export const ALIASES = [
   { keys: ['tudor'], full: 'Tudor Fieldhouse', label: 'Tudor Fieldhouse, Rice' },
   { keys: ['moody'], full: 'Moody Center for the Arts', label: 'Moody Center for the Arts, Rice' },
   { keys: ['rice stadium'], full: 'Rice Stadium', label: 'Rice Stadium' },
+  { keys: ['rva'], full: 'Rice Village Apartments', label: 'Rice Village Apartments' },
 
   // --- Texas Medical Center ---------------------------------------------
   { keys: ['tmc'], full: 'Texas Medical Center', label: 'Texas Medical Center' },
