@@ -967,6 +967,68 @@ function focusRoute(index) {
 
 /* ---------------------------------------------------------- map picks --- */
 
+/**
+ * What the map is currently *about*.
+ *
+ * Resolved in the order a person would expect: the turn they clicked beats the
+ * route it belongs to, which beats a layer they switched on, which beats the
+ * two pins. Returns null only on a blank map.
+ */
+function recenterTarget() {
+  const step = state.activeStep != null ? state.directions[state.activeStep] : null;
+  if (step?.points?.length) {
+    return { label: 'this turn', bounds: L.latLngBounds(step.points) };
+  }
+
+  const route = state.routes[state.selected];
+  if (route?.points?.length) {
+    return { label: 'your route', bounds: L.latLngBounds(route.points) };
+  }
+
+  if (state.priorityLayer && sitesCache.length) {
+    return { label: 'the priority sites', bounds: L.latLngBounds(sitesCache.map((site) => site.coord)) };
+  }
+
+  if (state.demandLayer) {
+    return { label: 'the demand layer', bounds: state.demandLayer.getBounds() };
+  }
+
+  const pins = ['origin', 'destination']
+    .map((role) => state.places[role]?.coord)
+    .filter(Boolean);
+  if (pins.length === 2) return { label: 'your trip', bounds: L.latLngBounds(pins) };
+  if (pins.length === 1) return { label: 'your start', bounds: L.latLngBounds([pins[0], pins[0]]) };
+
+  return null;
+}
+
+function recenterMap() {
+  const target = recenterTarget();
+  if (!target) {
+    map.flyTo(HOUSTON_CENTER, 12, { duration: 0.55 });
+    return;
+  }
+  map.flyToBounds(target.bounds, { ...boundsOptions(), duration: 0.55, maxZoom: 17 });
+}
+
+/**
+ * Light the button only when it has something to do — which is the whole
+ * reason Google's appears when it does. "Away" means the thing being shown is
+ * no longer fully on screen.
+ */
+function syncRecenter() {
+  const button = el('recenter-btn');
+  if (!button) return;
+  const target = recenterTarget();
+  button.title = target ? `Recentre on ${target.label}` : 'Recentre on Houston';
+  button.setAttribute(
+    'aria-label',
+    target ? `Recentre the map on ${target.label}` : 'Recentre the map on Houston',
+  );
+  const away = target ? !map.getBounds().contains(target.bounds) : false;
+  button.classList.toggle('is-away', away);
+}
+
 function armPick(role) {
   state.pick = state.pick === role ? null : role;
   // Scoped to the pick buttons only. The layer toggles beside them share the
@@ -2802,6 +2864,10 @@ function init() {
     el('scn-effect').value = '30';
     renderScenarioPanel();
   });
+
+  el('recenter-btn').addEventListener('click', recenterMap);
+  map.on('moveend zoomend layeradd layerremove', syncRecenter);
+  syncRecenter();
 
   el('basemap-btn').addEventListener('click', () => {
     const index = BASEMAP_ORDER.indexOf(state.basemap);

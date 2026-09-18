@@ -269,6 +269,25 @@
           <span class="pick-banner-text" id="pick-banner-text" aria-live="polite"></span>
           <button type="button" class="pick-banner-cancel" id="pick-cancel">Cancel</button>
         </div>
+
+        <!-- Recentre, the way every map app has one: put back on screen
+             whatever the app is currently about. -->
+        <button
+          type="button"
+          class="recenter-btn"
+          id="recenter-btn"
+          title="Recentre"
+          aria-label="Recentre the map on what you are looking at"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <circle cx="12" cy="12" r="4.2" />
+            <circle cx="12" cy="12" r="8.2" class="ring" />
+            <line x1="12" y1="1.6" x2="12" y2="4.6" />
+            <line x1="12" y1="19.4" x2="12" y2="22.4" />
+            <line x1="1.6" y1="12" x2="4.6" y2="12" />
+            <line x1="19.4" y1="12" x2="22.4" y2="12" />
+          </svg>
+        </button>
         <!-- Two kinds of control lived in one undifferentiated row: the first
              pair puts the map into a click-to-place mode, the rest switch
              layers on and off. Grouping them says which is which before

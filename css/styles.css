@@ -2303,3 +2303,54 @@ input[type="text"],
   margin: -4px 0 12px;
   line-height: 1.5;
 }
+
+/* ------------------------------------------------------- recentre ------- */
+
+/* Sits under the zoom control, where a map app's recentre button belongs.
+   Quiet until the map has actually wandered off what it is showing. */
+.recenter-btn {
+  position: absolute;
+  top: 88px;
+  left: 10px;
+  z-index: 520;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  border-radius: 5px;
+  background: #fff;
+  color: var(--muted, #5b6b63);
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(16, 32, 24, 0.22);
+}
+
+.recenter-btn svg {
+  width: 19px;
+  height: 19px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+}
+
+.recenter-btn svg .ring { opacity: 0.45; }
+
+.recenter-btn:hover { color: var(--ink, #14211b); }
+.recenter-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* The map has moved away from what it is showing, so the button has
+   something to do. Same signal Google's gives: colour, not a new control. */
+.recenter-btn.is-away {
+  color: var(--accent);
+  border-color: rgba(31, 122, 77, 0.5);
+}
+
+@media (max-width: 900px) {
+  .recenter-btn {
+    width: 38px;
+    height: 38px;
+  }
+  .recenter-btn svg { width: 21px; height: 21px; }
+}
