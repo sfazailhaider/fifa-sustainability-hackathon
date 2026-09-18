@@ -132,7 +132,7 @@ export function renderScatter(cells, sites) {
 
   return `
     <svg class="sc" viewBox="0 0 ${W} ${H}" role="img"
-         aria-label="Scatter of walking demand against walkability cost. The priority sites are the cells high on both.">
+         aria-label="Every scored corner plotted by how many walking trips cross it against how hard it is to walk. The priority sites are the ones high on both.">
       ${yTicks}
       ${curve}
       ${population}

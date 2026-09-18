@@ -142,6 +142,13 @@
 
         <section class="card" id="results-card" hidden>
           <h2>Routes <span class="stale-chip" id="stale-chip" hidden>outdated</span></h2>
+          <p class="hint legend-note">
+            Each route is scored <b>0–100</b> on how pleasant it is to travel:
+            shade, greenery, distance from traffic and directness. The three bars
+            are the share of <em>that route</em> which is beside a park, under
+            trees, and away from big roads. Drag <b>Scoring weights</b> on the map
+            to change what counts.
+          </p>
           <div id="routes"></div>
         </section>
 
@@ -176,6 +183,36 @@
             <button id="close-priority" class="link-btn" type="button">hide</button>
           </h2>
           <p class="hint" id="priority-summary"></p>
+
+          <!-- The lever. The ranking says where the problem is; this says what
+               fixing it buys, which is the question a city actually has. -->
+          <div class="scenario" id="scenario">
+            <div class="scn-head">
+              <strong>What if the city fixed them?</strong>
+              <button type="button" class="link-btn" id="scenario-reset">reset</button>
+            </div>
+            <p class="scn-intro">
+              Shade, crossings and sidewalks on the worst corners. Nobody's route
+              changes — the same walks happen, on better ground.
+            </p>
+
+            <label class="scn-control" for="scn-count">
+              <span class="scn-label">Fix the top <b id="scn-count-out">5</b> sites</span>
+              <input type="range" id="scn-count" min="1" max="20" step="1" value="5" />
+            </label>
+
+            <label class="scn-control" for="scn-effect">
+              <span class="scn-label">
+                Each fix cuts walking difficulty by <b id="scn-effect-out">30%</b>
+                <em>an assumption you choose, not a measurement — how much shade,
+                crossings and sidewalk actually help is a policy question</em>
+              </span>
+              <input type="range" id="scn-effect" min="10" max="50" step="5" value="30" />
+            </label>
+
+            <div id="scenario-out"></div>
+          </div>
+
           <div id="priority-chart"></div>
           <div class="sc-legend" id="priority-chart-legend"></div>
           <ol id="priority-list" class="priority-list"></ol>
@@ -226,55 +263,74 @@
 
       <main class="map-wrap">
         <div id="map"></div>
+
+        <div class="pick-banner" id="pick-banner" hidden>
+          <span class="pick-banner-dot" aria-hidden="true"></span>
+          <span class="pick-banner-text" id="pick-banner-text" aria-live="polite"></span>
+          <button type="button" class="pick-banner-cancel" id="pick-cancel">Cancel</button>
+        </div>
+        <!-- Two kinds of control lived in one undifferentiated row: the first
+             pair puts the map into a click-to-place mode, the rest switch
+             layers on and off. Grouping them says which is which before
+             anything is pressed. -->
         <div class="map-tools">
-          <button type="button" class="pick-btn" data-pick="origin"><span class="btn-icon">📍</span><span class="btn-text">Set start</span></button>
-          <button type="button" class="pick-btn" data-pick="destination"><span class="btn-icon">🏁</span><span class="btn-text">Set finish</span></button>
-          <button type="button" class="pick-btn" id="basemap-btn" title="Switch basemap">
-            <span class="btn-icon">🗺</span><span class="btn-text">Streets</span>
-          </button>
-                                                <button
-            type="button"
-            class="pick-btn"
-            id="walk-layer-btn"
-            title="Show the walkability surface"
-            aria-pressed="false"
-          >
-            <span class="btn-icon">🚶</span><span class="btn-text">Walkability</span>
-          </button>
-          <button
-            type="button"
-            class="pick-btn"
-            id="economy-btn"
-            title="Jobs on the ground, from the business directory"
-            aria-pressed="false"
-          >
-            <span class="btn-icon">💼</span><span class="btn-text">Jobs</span>
-          </button>
-          <button
-            type="button"
-            class="pick-btn"
-            id="demand-btn"
-            title="Simulated foot traffic — press again to switch between event-day and everyday"
-            aria-pressed="false"
-          >
-            <span class="btn-icon">🔥</span><span class="btn-text">Demand</span>
-          </button>
-          <button
-            type="button"
-            class="pick-btn"
-            id="priority-btn"
-            title="Where to invest first: busiest and hardest to walk"
-            aria-pressed="false"
-          >
-            <span class="btn-icon">⚠️</span><span class="btn-text">Priority</span>
-          </button>
+          <div class="tool-group tool-trip" role="group" aria-label="Place the trip on the map">
+            <button type="button" class="pick-btn is-action" data-pick="origin">
+              <span class="btn-icon">📍</span><span class="btn-text">Set start</span>
+            </button>
+            <button type="button" class="pick-btn is-action" data-pick="destination">
+              <span class="btn-icon">🏁</span><span class="btn-text">Set finish</span>
+            </button>
+          </div>
+
+          <div class="tool-group" role="group" aria-label="Map layers">
+            <button type="button" class="pick-btn" id="basemap-btn" title="Switch basemap">
+              <span class="btn-icon">🗺</span><span class="btn-text">Streets</span>
+            </button>
+            <button
+              type="button"
+              class="pick-btn"
+              id="walk-layer-btn"
+              title="Show the walkability surface"
+              aria-pressed="false"
+            >
+              <span class="btn-icon">🚶</span><span class="btn-text">Walkability</span>
+            </button>
+            <button
+              type="button"
+              class="pick-btn"
+              id="economy-btn"
+              title="Jobs on the ground, from the business directory"
+              aria-pressed="false"
+            >
+              <span class="btn-icon">💼</span><span class="btn-text">Jobs</span>
+            </button>
+            <button
+              type="button"
+              class="pick-btn"
+              id="demand-btn"
+              title="Simulated foot traffic — choose the run once it is on"
+              aria-pressed="false"
+            >
+              <span class="btn-icon">🔥</span><span class="btn-text">Demand</span>
+            </button>
+            <button
+              type="button"
+              class="pick-btn"
+              id="priority-btn"
+              title="Where to invest first: busiest and hardest to walk"
+              aria-pressed="false"
+            >
+              <span class="btn-icon">⚠️</span><span class="btn-text">Priority</span>
+            </button>
+          </div>
         </div>
         <div class="map-scales">
           <div class="map-legend" id="walk-legend" hidden>
             <strong>🚶 Walkability surface</strong>
             <div class="walk-ramp"><span></span><span></span><span></span><span></span><span></span></div>
             <div class="walk-ramp-labels"><span>hard to walk</span><span>easy</span></div>
-            <div class="walk-note">Rice GIS index · unshaded areas have no data</div>
+            <div class="walk-note">Rice GIS index, 0–10, where <b>10 is hardest to walk</b> · blank areas were not scored</div>
           </div>
 
           <div class="map-legend" id="economy-legend" hidden>
@@ -282,15 +338,22 @@
             <div class="econ-ramp"><span></span><span></span><span></span><span></span><span></span></div>
             <div class="walk-ramp-labels"><span>fewer jobs</span><span>more</span></div>
             <div class="walk-note" id="economy-count"></div>
-            <div class="walk-note">Log scale — the busiest cell holds 21,292 jobs.</div>
+            <div class="walk-note">Jobs per 60 m square. Log scale, so each step up the ramp is many times the one before — the busiest square holds 21,292.</div>
           </div>
 
           <div class="map-legend" id="demand-legend" hidden>
             <strong id="demand-title">🔥 Foot traffic</strong>
+            <div class="seg" id="demand-runs" role="group" aria-label="Which simulation to show">
+              <button type="button" class="seg-btn is-on" data-run="venues" aria-pressed="true">
+                Event day
+              </button>
+              <button type="button" class="seg-btn" data-run="jobs" aria-pressed="false">
+                Everyday
+              </button>
+            </div>
             <div class="dem-ramp"><span></span><span></span><span></span><span></span><span></span></div>
             <div class="walk-ramp-labels"><span>fewer routes</span><span>more</span></div>
             <div class="walk-note" id="demand-note"></div>
-            <div class="walk-note" id="demand-switch"></div>
           </div>
 
           <div class="map-legend" id="priority-legend" hidden>
@@ -298,7 +361,9 @@
             <div class="prio-ramp"><span></span><span></span><span></span><span></span><span></span></div>
             <div class="walk-ramp-labels"><span>lower</span><span>highest priority</span></div>
             <div class="walk-note">
-              Trips carried × walkability cost. Marker area scales with the same value.
+              How busy a corner is × how hard it is to walk. A big dot means
+              <b>lots of people crossing difficult ground</b> — the places worth
+              fixing first. Bigger dot, bigger problem.
             </div>
           </div>
         </div>
@@ -335,10 +400,6 @@
               </div>
               <p class="hint" id="score-mode-hint" style="margin: 8px 0 0"></p>
             </div>
-          </div>
-        </div>
-            <div class="walk-note">
-              Rice GIS multidimensional index · unshaded areas have no data
           </div>
         </div>
       </main>

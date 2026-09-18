@@ -20,13 +20,19 @@ const loaded = new Map();
 const images = new Map();
 
 // Orange, the last clear slot on this map: walkability owns red through green,
-// jobs purple, priority crimson, water blue. Screen-blended like the jobs
-// heatmap so it brightens the ground rather than recolouring it.
+// jobs purple, priority crimson, water blue.
+//
+// The ramp runs light-to-dark, which is the reverse of how it started. It was
+// built to be screen-blended, so its bright end was white — and screen blend
+// lightens, which on a light street basemap means the busiest cells were
+// painted white onto near-white and disappeared. Every basemap this app ships
+// is light, so the layer is composited normally now and the busiest cells are
+// the darkest, which is the way a heat layer reads on paper too.
 const HEAT = [
-  [0.0, [124, 45, 18]],
-  [0.45, [234, 88, 12]],
-  [0.75, [253, 186, 116]],
-  [1.0, [255, 255, 255]],
+  [0.0, [254, 215, 170]],
+  [0.35, [251, 146, 60]],
+  [0.7, [234, 88, 12]],
+  [1.0, [124, 45, 18]],
 ];
 
 function heatColor(t) {
@@ -73,10 +79,6 @@ export function overlayImage(mode) {
   const doc = loaded.get(mode);
   if (!doc?.hotspots?.length) return null;
 
-  // A fixed working raster: fine enough for 60 m cells across the county,
-  // small enough to build instantly.
-  const W = 1000;
-  const H = 700;
   const lats = doc.hotspots.map((h) => h.c[0]);
   const lons = doc.hotspots.map((h) => h.c[1]);
   const bbox = {
@@ -86,25 +88,49 @@ export function overlayImage(mode) {
     e: Math.max(...lons) + 0.01,
   };
 
+  // Ground distances across the box, so the raster can be given square pixels.
+  // A fixed 1000x700 raster stretched over a box that is taller than it is
+  // wide turns every disc into a vertical ellipse; the blobs were leaning.
+  const midLat = ((bbox.s + bbox.n) / 2) * (Math.PI / 180);
+  const widthM = (bbox.e - bbox.w) * 111320 * Math.cos(midLat);
+  const heightM = (bbox.n - bbox.s) * 111320;
+
+  const W = 1000;
+  const H = Math.max(200, Math.min(1600, Math.round((W * heightM) / widthM)));
+  const metresPerPx = widthM / W;
+
   const canvas = document.createElement('canvas');
   canvas.width = W;
   canvas.height = H;
   const ctx = canvas.getContext('2d');
 
-  const top = Math.max(...doc.hotspots.map((h) => h.n));
-  const ceiling = Math.log1p(top);
+  const counts = doc.hotspots.map((h) => h.n);
+  const top = Math.max(...counts);
+  const floor = Math.min(...counts);
 
-  // Painted darkest-first so the busiest cells finish on top.
+  // Normalised across the range the data actually occupies, not from zero.
+  // Every cell in the event-day run carries at least 45 trips, so measuring
+  // from zero squeezed the whole layer into the top third of the ramp and
+  // nothing ever reached the colours that read as busy.
+  const lo = Math.log1p(floor);
+  const span = Math.log1p(top) - lo;
+
+  // Cells are 60 m. A disc has to cover a couple of them for a corridor to
+  // read as a corridor rather than a row of dots.
+  const radiusM = (strength) => 90 + strength * 70;
+
+  // Painted lightest-first so the busiest cells finish on top.
   const ordered = [...doc.hotspots].sort((a, b) => a.n - b.n);
   for (const spot of ordered) {
-    const strength = ceiling > 0 ? Math.log1p(spot.n) / ceiling : 0;
+    const strength = span > 0 ? (Math.log1p(spot.n) - lo) / span : 1;
     const [r, g, b] = heatColor(strength);
     const x = ((spot.c[1] - bbox.w) / (bbox.e - bbox.w)) * W;
     const y = ((bbox.n - spot.c[0]) / (bbox.n - bbox.s)) * H;
-    const radius = 4 + strength * 5;
+    const radius = radiusM(strength) / metresPerPx;
 
     const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
-    gradient.addColorStop(0, `rgba(${r},${g},${b},${(0.35 + 0.5 * strength).toFixed(2)})`);
+    gradient.addColorStop(0, `rgba(${r},${g},${b},${(0.5 + 0.42 * strength).toFixed(2)})`);
+    gradient.addColorStop(0.55, `rgba(${r},${g},${b},${(0.24 + 0.3 * strength).toFixed(2)})`);
     gradient.addColorStop(1, `rgba(${r},${g},${b},0)`);
     ctx.fillStyle = gradient;
     ctx.beginPath();

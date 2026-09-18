@@ -25,6 +25,7 @@ import { loadWalkability, walkabilityMeta, overlayImage } from './walkability.js
 import { loadPriority, priorityMeta, radiusFor, colorFor, describeSite, renderScatter } from './priority.js';
 import { loadEconomy, economyMeta, overlayImage as economyImage } from './economy.js';
 import { loadDemand, demandMeta, overlayImage as demandImage } from './demand.js';
+import { runScenario, renderScenario } from './scenario.js';
 import { renderProfile, seriesFor, sampleAt, describeSample } from './profile.js';
 import {
   planTransit,
@@ -80,6 +81,9 @@ const state = {
   economyLayer: null,
   demandLayer: null,
   demandMode: null,
+  demandRun: 'venues',
+  scenario: { count: 5, effect: 30 },
+  priorityMarkers: [],
   waterLayer: null,
   showWater: true,
   busy: false,
@@ -321,16 +325,22 @@ const DEMAND_LABEL = {
 };
 
 /**
- * One button, three states: off → event-day → everyday → off.
+ * Foot traffic, as an on/off layer with a named run.
  *
- * The two runs are mutually exclusive rather than separate toggles. They are
- * both intensity surfaces, and two of those at once is unreadable — the honest
- * comparison is one and then the other. A single cycling control also keeps
- * the button row down to four layers, which is what fits a phone.
+ * This was one button cycling off → event-day → everyday → off. Nothing on
+ * screen said a second press gave a different map, and getting back to the
+ * first run meant pressing through "off". The button is now an ordinary
+ * toggle, and the two runs are named buttons in the legend — both visible,
+ * either reachable in one press.
+ *
+ * They stay mutually exclusive: two intensity surfaces at once is unreadable,
+ * and the honest comparison is one and then the other.
  */
-async function cycleDemand() {
-  const order = [null, 'venues', 'jobs'];
-  const next = order[(order.indexOf(state.demandMode) + 1) % order.length];
+async function toggleDemand() {
+  await setDemandRun(state.demandMode ? null : state.demandRun || 'venues');
+}
+
+async function setDemandRun(next) {
   const button = el('demand-btn');
 
   if (state.demandLayer) {
@@ -346,6 +356,11 @@ async function cycleDemand() {
     return;
   }
 
+  // Remembered, so turning the layer off and on again comes back to the run
+  // that was last being looked at rather than resetting to event-day.
+  state.demandRun = next;
+  syncDemandRuns(next);
+
   button.disabled = true;
   await loadDemand(next);
   const image = demandImage(next);
@@ -360,6 +375,7 @@ async function cycleDemand() {
     );
     state.demandMode = null;
     button.classList.remove('is-armed');
+    button.setAttribute('aria-pressed', 'false');
     el('demand-legend').hidden = true;
     return;
   }
@@ -378,12 +394,19 @@ async function cycleDemand() {
   const [title, note] = DEMAND_LABEL[next];
   el('demand-title').textContent = title;
   el('demand-note').textContent =
-    `${note} ${doc.routed.toLocaleString()} simulated trips, ${image.cells} cells, busiest carries ${image.top}.`;
-  el('demand-switch').textContent =
-    next === 'venues' ? 'Press again for everyday demand.' : 'Press again to turn off.';
+    `${note} Darker means more of the ${doc.routed.toLocaleString()} simulated walking trips use that ` +
+    `street: the busiest 60 m square is crossed by ${image.top} of them.`;
   button.classList.add('is-armed');
   button.setAttribute('aria-pressed', 'true');
   el('demand-legend').hidden = false;
+}
+
+function syncDemandRuns(active) {
+  document.querySelectorAll('#demand-runs .seg-btn').forEach((btn) => {
+    const on = btn.dataset.run === active;
+    btn.classList.toggle('is-on', on);
+    btn.setAttribute('aria-pressed', String(on));
+  });
 }
 
 /** The priority sites, on the map and in a ranked list. */
@@ -414,9 +437,9 @@ async function togglePriority() {
   const top = sites[0].priority;
   state.priorityLayer = L.layerGroup().addTo(map);
 
-  sites.forEach((site, i) => {
+  state.priorityMarkers = sites.map((site, i) => {
     const { fill, stroke } = colorFor(site.priority, top);
-    L.circleMarker(site.coord, {
+    const marker = L.circleMarker(site.coord, {
       radius: radiusFor(site.priority, top),
       color: stroke,
       weight: 1.5,
@@ -425,11 +448,15 @@ async function togglePriority() {
     })
       .bindTooltip(
         `<b>#${i + 1} ${escapeHtml(site.name || 'site')}</b><br>` +
-          `${site.trips} of ${meta.routed} simulated trips · walkability cost ${site.cost}`,
+          `${site.trips} of ${meta.routed} simulated walks cross here · difficulty ${site.cost}/10`,
         { direction: 'top' },
       )
       .on('click', () => focusPrioritySite(i))
       .addTo(state.priorityLayer);
+    // Remembered, so a site dropping out of the treated set goes back to the
+    // colour the ramp gave it rather than to whatever it was last styled with.
+    marker.baseStyle = { color: stroke, fillColor: fill };
+    return marker;
   });
 
   button.classList.add('is-armed');
@@ -446,7 +473,7 @@ function renderPriorityList(sites, meta) {
   el('priority-summary').innerHTML =
     `Busiest <em>and</em> hardest to walk. ${sites[0].name || 'The top site'} carries ` +
     `<b>${top[0].share}%</b> of ${meta.routed.toLocaleString()} simulated walking trips ` +
-    `to the venues, on ground the walkability index scores ${sites[0].cost} out of 10.`;
+    `to the venues — on ground the walkability index rates <b>${sites[0].cost} out of 10 for difficulty</b>, where 10 is the hardest to walk.`;
 
   el('priority-list').innerHTML = top
     .map(
@@ -455,7 +482,7 @@ function renderPriorityList(sites, meta) {
         <span class="priority-rank">${site.rank}</span>
         <span>
           <span class="priority-name">${escapeHtml(site.name)}</span>
-          <span class="priority-meta">${site.trips} trips (${site.share}%) · cost ${site.cost}/10</span>
+          <span class="priority-meta">${site.trips} of ${meta.routed.toLocaleString()} simulated walks cross here · difficulty ${site.cost}/10</span>
         </span>
         <span class="priority-score">${site.priority.toFixed(2)}</span>
       </li>`,
@@ -474,6 +501,35 @@ function renderPriorityList(sites, meta) {
     `<span class="sc-key"><i class="sc-dot-bg"></i>all ${meta.cells?.length || 0} scored cells</span>` +
     '<span class="sc-key"><i class="sc-dash"></i>cut-off</span>';
   el('priority-method').textContent = meta.method;
+  renderScenarioPanel();
+}
+
+/**
+ * The what-if, recomputed from numbers already in memory. No request, no
+ * re-routing — which is what lets the sliders answer as fast as they move.
+ */
+function renderScenarioPanel() {
+  const sites = sitesCache;
+  if (!sites?.length) return;
+  const meta = priorityMeta();
+  const { count, effect } = state.scenario;
+
+  const result = runScenario(sites, { count, reduction: effect / 100 });
+
+  el('scn-count-out').textContent = String(count);
+  el('scn-effect-out').textContent = `${effect}%`;
+  el('scenario-out').innerHTML = renderScenario(result, meta.routed);
+
+  // Treated sites get a ring on the map, so the budget is legible as a place
+  // and not only as a number.
+  state.priorityMarkers.forEach((marker, i) => {
+    const treated = i < count;
+    marker.setStyle({
+      color: treated ? '#1f7a4d' : marker.baseStyle.color,
+      weight: treated ? 3 : 1.5,
+      fillOpacity: treated ? 0.5 : 1,
+    });
+  });
 }
 
 function focusPrioritySite(index) {
@@ -920,8 +976,19 @@ function armPick(role) {
     btn.classList.toggle('is-armed', btn.dataset.pick === state.pick);
   });
   map.getContainer().classList.toggle('map-picking', Boolean(state.pick));
+
+  // Arming used to announce itself with a coloured button, a crosshair, and a
+  // line of status text in the sidebar — none of which is where the eye is once
+  // someone has decided to click the map. The banner sits over the map and says
+  // what to do and how to stop.
+  const banner = el('pick-banner');
   if (state.pick) {
-    setStatus(`Click the map to set the ${state.pick === 'origin' ? 'start' : 'finish'}.`);
+    const what = state.pick === 'origin' ? 'start' : 'finish';
+    el('pick-banner-text').textContent = `Click the map to set your ${what}`;
+    banner.hidden = false;
+    setStatus(`Click the map to set the ${what}.`);
+  } else {
+    banner.hidden = true;
   }
 }
 
@@ -1614,8 +1681,10 @@ function select(index, { focus = true } = {}) {
 
 function bar(label, value) {
   const pct = Math.round(value * 100);
+  // Titled, because a bare "52%" begs the question "of what?" and the answer
+  // is the same for all three: of the distance you travel.
   return `
-    <div class="bar">
+    <div class="bar" title="${pct}% of this route">
       <span>${label}</span>
       <span class="bar-track"><span class="bar-fill" style="width:${pct}%"></span></span>
       <span class="bar-val">${pct}%</span>
@@ -1693,7 +1762,7 @@ function renderRoutes() {
           <div class="bars">
             ${bar(route.transit ? 'Green on foot' : 'Green', m.greenShare)}
             ${bar(route.transit ? 'Shade on foot' : 'Shade', m.shadeShare)}
-            ${bar('Calm', 1 - m.bigRoadShare)}
+            ${bar('Away from traffic', 1 - m.bigRoadShare)}
           </div>
         </div>`;
     })
@@ -2669,7 +2738,10 @@ function init() {
     }
   });
 
-  document.querySelectorAll('.pick-btn').forEach((btn) =>
+  // Scoped to the picking pair: the layer toggles beside them share the class,
+  // and an unscoped listener ran armPick(undefined) for those too — which
+  // cancelled a pick in progress every time a layer was switched on.
+  document.querySelectorAll('.pick-btn[data-pick]').forEach((btn) =>
     btn.addEventListener('click', () => armPick(btn.dataset.pick)),
   );
 
@@ -2690,14 +2762,46 @@ function init() {
   );
 
   document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && !el('weights-body').hidden) setWeightsOpen(false);
+    if (event.key !== 'Escape') return;
+    if (!el('weights-body').hidden) setWeightsOpen(false);
+    // A mode you cannot get out of is worse than no mode at all.
+    if (state.pick) {
+      armPick(null);
+      setStatus('');
+    }
+  });
+
+  el('pick-cancel').addEventListener('click', () => {
+    armPick(null);
+    setStatus('');
   });
 
   el('walk-layer-btn').addEventListener('click', toggleWalkLayer);
   el('priority-btn').addEventListener('click', togglePriority);
   el('economy-btn').addEventListener('click', toggleEconomy);
-  el('demand-btn').addEventListener('click', cycleDemand);
+  el('demand-btn').addEventListener('click', toggleDemand);
+
+  document.querySelectorAll('#demand-runs .seg-btn').forEach((btn) =>
+    btn.addEventListener('click', () => setDemandRun(btn.dataset.run)),
+  );
   el('close-priority').addEventListener('click', togglePriority);
+
+  el('scn-count').addEventListener('input', (event) => {
+    state.scenario.count = Number(event.target.value);
+    renderScenarioPanel();
+  });
+
+  el('scn-effect').addEventListener('input', (event) => {
+    state.scenario.effect = Number(event.target.value);
+    renderScenarioPanel();
+  });
+
+  el('scenario-reset').addEventListener('click', () => {
+    state.scenario = { count: 5, effect: 30 };
+    el('scn-count').value = '5';
+    el('scn-effect').value = '30';
+    renderScenarioPanel();
+  });
 
   el('basemap-btn').addEventListener('click', () => {
     const index = BASEMAP_ORDER.indexOf(state.basemap);

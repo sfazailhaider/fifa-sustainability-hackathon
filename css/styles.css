@@ -869,7 +869,42 @@ input[type="text"],
   right: 12px;
   z-index: 500;
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px 14px;
+}
+
+/* Placing the trip and switching layers are different jobs, so they are
+   different groups. The gap and the rule between them carry that without
+   spending a word on it. */
+.tool-group {
+  display: flex;
   gap: 6px;
+  position: relative;
+}
+
+.tool-group + .tool-group {
+  border-left: 1px solid var(--line);
+  padding-left: 8px;
+}
+
+/* The two picking buttons start an action; the layer buttons toggle a state.
+   Tinting the pair marks them as the ones that do something next. */
+.pick-btn.is-action {
+  border-color: rgba(31, 122, 77, 0.45);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.pick-btn.is-action:hover:not(.is-armed) {
+  background: #fff;
+  border-color: var(--accent);
+}
+
+.pick-btn.is-armed:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
 }
 
 .pick-btn {
@@ -897,6 +932,102 @@ input[type="text"],
 .map-picking {
   cursor: crosshair;
 }
+
+/* What "armed" looks like, in the place someone is actually looking: over the
+   map, not in the sidebar status line they have their back to. */
+.pick-banner {
+  position: absolute;
+  /* Clear of the button row it is explaining; centred, so it reads as being
+     about the map rather than about the toolbar. */
+  top: 58px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 620;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: calc(100% - 24px);
+  padding: 9px 9px 9px 14px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 6px 20px rgba(16, 32, 24, 0.28);
+}
+
+.pick-banner-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #fff;
+  flex: none;
+  animation: pick-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes pick-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(0.72); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pick-banner-dot { animation: none; }
+}
+
+.pick-banner-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pick-banner-cancel {
+  flex: none;
+  border: 0;
+  border-radius: 999px;
+  padding: 5px 12px;
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.pick-banner-cancel:hover { background: rgba(255, 255, 255, 0.3); }
+.pick-banner-cancel:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+
+/* Two runs of one simulation, named and directly selectable. */
+.seg {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px;
+  margin: 7px 0 2px;
+  padding: 2px;
+  border-radius: 7px;
+  background: rgba(15, 23, 42, 0.08);
+}
+
+.seg-btn {
+  border: 0;
+  border-radius: 5px;
+  padding: 5px 6px;
+  background: transparent;
+  color: var(--muted, #5b6b63);
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.seg-btn:hover { color: var(--ink, #14211b); }
+
+.seg-btn.is-on {
+  background: #fff;
+  color: var(--accent);
+  box-shadow: 0 1px 2px rgba(16, 32, 24, 0.16);
+}
+
+.seg-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
 /* -------------------------------------------------------- directions --- */
 
@@ -1905,13 +2036,22 @@ input[type="text"],
     text-align: center;
   }
 
-  /* One row of icons hugging the right, so it does not span the width and sit
-     on top of the panel in the opposite corner. */
+  /* Icons hugging the right. They wrap rather than running off the edge: at
+     400px a single row of seven put Demand and Priority past the right edge
+     entirely, where nothing could reach them. */
   .map-tools {
     top: 8px;
     right: 8px;
     left: auto;
-    max-width: none;
+    max-width: calc(100% - 16px);
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    row-gap: 6px;
+  }
+
+  /* Each group stays whole when the row breaks, so the trip pair never splits
+     across two lines. */
+  .tool-group {
     flex-wrap: nowrap;
   }
 
@@ -1986,11 +2126,12 @@ input[type="text"],
   opacity: 0.7;
 }
 
-/* Foot traffic: same screen-blend treatment as the jobs heatmap, in the one
-   hue left — walkability owns red-green, jobs purple, priority crimson. */
+/* Foot traffic, in the one hue left — walkability owns red-green, jobs purple,
+   priority crimson. Composited normally rather than screen-blended: screen
+   lightens, and against a light street basemap it erased the layer. */
 .dem-overlay {
-  mix-blend-mode: screen;
-  filter: blur(3px);
+  filter: blur(2px);
+  opacity: 0.92;
 }
 
 .dem-ramp {
@@ -1998,14 +2139,167 @@ input[type="text"],
   grid-template-columns: repeat(5, 1fr);
   gap: 1px;
   margin: 6px 0 3px;
-  background: #1f2937;
+  background: rgba(15, 23, 42, 0.12);
   padding: 2px;
   border-radius: 3px;
 }
 
 .dem-ramp span { height: 8px; }
-.dem-ramp span:nth-child(1) { background: rgb(124, 45, 18); }
-.dem-ramp span:nth-child(2) { background: rgb(234, 88, 12); }
-.dem-ramp span:nth-child(3) { background: rgb(244, 137, 64); }
-.dem-ramp span:nth-child(4) { background: rgb(253, 186, 116); }
-.dem-ramp span:nth-child(5) { background: rgb(255, 255, 255); }
+.dem-ramp span:nth-child(1) { background: rgb(254, 215, 170); }
+.dem-ramp span:nth-child(2) { background: rgb(251, 146, 60); }
+.dem-ramp span:nth-child(3) { background: rgb(234, 88, 12); }
+.dem-ramp span:nth-child(4) { background: rgb(180, 66, 15); }
+.dem-ramp span:nth-child(5) { background: rgb(124, 45, 18); }
+
+/* ------------------------------------------------------- scenario ------- */
+
+/* The what-if built on the priority ranking. It lives inside the priority
+   card because it is the second half of the same sentence: here is where the
+   problem is, here is what fixing it buys. */
+.scenario {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin: 12px 0 14px;
+  background: var(--raised, #f4f7f4);
+}
+
+.scn-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.scn-head strong { font-size: 13.5px; }
+
+.scn-control { display: block; margin-bottom: 12px; }
+
+.scn-label {
+  display: block;
+  font-size: 12.5px;
+  margin-bottom: 5px;
+}
+
+.scn-label b { color: var(--accent); }
+
+.scn-label em {
+  display: block;
+  font-style: normal;
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 1px;
+}
+
+.scn-control input[type="range"] { width: 100%; accent-color: var(--accent); }
+
+.scn-figures {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 12px 0 14px;
+}
+
+.scn-fig {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 11px;
+}
+
+.scn-big {
+  display: block;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.05;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.scn-cap {
+  display: block;
+  font-size: 10.5px;
+  line-height: 1.35;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.scn-bars { margin-bottom: 10px; }
+
+.scn-bar-row {
+  display: grid;
+  grid-template-columns: 42px 1fr 40px;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 5px;
+}
+
+.scn-bar-label { font-size: 11.5px; color: var(--muted); }
+
+.scn-bar {
+  display: block;
+  height: 14px;
+  border-radius: 3px;
+  background: rgba(15, 23, 42, 0.08);
+  overflow: hidden;
+}
+
+.scn-bar i {
+  display: block;
+  height: 100%;
+  background: #94a3b8;
+  border-radius: 3px;
+  transition: width 0.18s ease;
+}
+
+.scn-bar i.is-after { background: var(--accent); }
+
+.scn-bar-val {
+  font-size: 11.5px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.scn-axis {
+  font-size: 10.5px;
+  color: var(--muted);
+  margin: 4px 0 0;
+}
+
+.scn-note {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted);
+  margin: 0;
+}
+
+.scn-note b { color: var(--ink); }
+
+@media (prefers-reduced-motion: reduce) {
+  .scn-bar i { transition: none; }
+}
+
+/* Each headline figure carries its own definition, because "burden" and
+   "trip-passes" are exact and mean nothing to someone reading them cold. */
+.scn-cap em {
+  display: block;
+  font-style: normal;
+  font-size: 9.5px;
+  line-height: 1.35;
+  color: var(--muted);
+  opacity: 0.85;
+  margin-top: 3px;
+}
+
+.scn-intro {
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--muted);
+  margin: -4px 0 12px;
+}
+
+.legend-note {
+  margin: -4px 0 12px;
+  line-height: 1.5;
+}
