@@ -16,22 +16,24 @@ let grid = null;
 let loading = null;
 let overlayUrl = null;
 
-// A luminance heatmap, not a coloured one.
+// Density as depth of colour: the more jobs, the more purple.
 //
-// This has to stay readable on top of the walkability surface, which owns the
-// whole red-yellow-green range. Competing for hue would mud both layers, so
-// jobs are encoded as *added light* instead: blended with `screen` so they
-// brighten whatever is underneath without shifting its colour. Walkability
-// answers "what colour is this ground", jobs answer "how bright is it".
+// This started as a luminance ramp — deep purple for sparse, white hot for
+// dense — screen-blended so it added light rather than hue. That reads on a
+// dark ground and backwards on a light one, which is the only kind this app
+// ships: `screen` lightens, so the densest cells were painted white onto a
+// near-white basemap and the emptiest parts of the county were the most
+// strongly coloured. Exactly inverted from what anybody expects of a heatmap.
 //
-// Purple is the one hue nothing else on the map uses — the walkability ramp
-// owns red through green, water markers own blue, priority owns crimson. Cyan
-// was tried first and read as teal against the green end of the ramp.
+// Now it runs pale to deep and composites normally. More jobs, more purple.
+//
+// Purple is still the one hue nothing else on the map uses — the walkability
+// ramp owns red through green, water markers own blue, priority owns crimson.
 const HEAT = [
-  [0.0, [107, 33, 168]], // deep purple, sparse
-  [0.45, [168, 85, 247]],
-  [0.75, [233, 213, 255]],
-  [1.0, [255, 255, 255]], // white hot
+  [0.0, [250, 245, 255]], // barely there
+  [0.35, [216, 180, 254]],
+  [0.7, [147, 51, 234]],
+  [1.0, [88, 28, 135]], // deep purple, dense
 ];
 
 function heatColor(t) {
@@ -146,9 +148,9 @@ export function overlayImage() {
     image.data[p] = r;
     image.data[p + 1] = g;
     image.data[p + 2] = b;
-    // Alpha rises with intensity as well as colour, so sparse cells stay faint
-    // rather than painting the whole county cyan.
-    image.data[p + 3] = Math.round(30 + 200 * strength);
+    // Alpha rises with intensity as well as colour, so the sparse end fades
+    // toward the basemap instead of washing the whole county pale purple.
+    image.data[p + 3] = Math.round(18 + 215 * strength);
   }
 
   ctx.putImageData(image, 0, 0);
